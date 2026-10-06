@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "postgresql",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791287997779,
+      "tag": "0000_post_scheduler",
+      "breakpoints": true
+    }
+  ]
 }
