@@ -69,7 +69,7 @@ function AuthPage() {
     <main className="grid min-h-screen place-items-center px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-4xl font-extrabold">
-          Post<span className="text-primary">Pilot</span>
+          Auto Posts&nbsp;<span className="text-primary">By Ti Saju</span>
         </h1>
         <p className="mt-2 text-muted-foreground">ডিজাইন আপলোড করুন, বাংলা ক্যাপশন পান, অটো পোস্ট করুন।</p>
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
