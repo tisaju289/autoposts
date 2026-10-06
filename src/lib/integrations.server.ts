@@ -53,6 +53,31 @@ export async function generateBanglaCaption(imageUrl: string, hint?: string) {
 }
 
 const SHEETS = "https://connector-gateway.lovable.dev/google_sheets/v4";
+const DRIVE = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
+
+/** Downloads an image from the user's Google Drive via the connector gateway. */
+export async function downloadDriveImage(fileId: string): Promise<{ bytes: Uint8Array; contentType: string; name: string }> {
+  const lk = process.env["LOVABLE_API_KEY"];
+  const dk = process.env["GOOGLE_DRIVE_API_KEY"];
+  if (!lk || !dk) throw new Error("Google Drive সংযুক্ত নয়।");
+  const headers = { Authorization: `Bearer ${lk}`, "X-Connection-Api-Key": dk };
+  const metaRes = await fetch(`${DRIVE}/files/${fileId}?fields=id,name,mimeType,size`, { headers });
+  if (!metaRes.ok) {
+    const body = await metaRes.text();
+    throw new Error(`Drive ফাইল পাওয়া যায়নি [${metaRes.status}]: ${body.slice(0, 200)}`);
+  }
+  const meta = (await metaRes.json()) as { name?: string; mimeType?: string; size?: string };
+  if (!meta.mimeType?.startsWith("image/")) throw new Error(`"${meta.name ?? fileId}" ছবি নয় (${meta.mimeType ?? "unknown"})।`);
+  if (meta.size && Number(meta.size) > 20 * 1024 * 1024) throw new Error(`"${meta.name}" 20MB-এর বেশি — বাদ গেছে।`);
+  const dl = await fetch(`${DRIVE}/files/${fileId}?alt=media`, { headers });
+  if (!dl.ok) {
+    const body = await dl.text();
+    throw new Error(`Drive ডাউনলোড ব্যর্থ [${dl.status}]: ${body.slice(0, 200)}`);
+  }
+  const bytes = new Uint8Array(await dl.arrayBuffer());
+  if (bytes.byteLength > 20 * 1024 * 1024) throw new Error(`"${meta.name}" 20MB-এর বেশি — বাদ গেছে।`);
+  return { bytes, contentType: meta.mimeType, name: meta.name ?? fileId };
+}
 
 function sheetHeaders() {
   const lk = process.env["LOVABLE_API_KEY"];

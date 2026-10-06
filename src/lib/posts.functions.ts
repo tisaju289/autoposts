@@ -19,6 +19,39 @@ export const generateCaption = createServerFn({ method: "POST" })
     return { caption };
   });
 
+export const importDriveLinks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ links: z.string().min(1).max(20000) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { downloadDriveImage } = await import("./integrations.server");
+    const ids = [
+      ...new Set(
+        data.links
+          .split(/[\s,]+/)
+          .map((s) => s.match(/\/d\/([a-zA-Z0-9_-]{10,})/)?.[1] ?? s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/)?.[1] ?? (s.match(/^[a-zA-Z0-9_-]{10,}$/)?.[0] ?? null))
+          .filter((x): x is string => Boolean(x)),
+      ),
+    ].slice(0, 50);
+    if (!ids.length) throw new Error("কোনো Drive লিংক পাওয়া যায়নি। ফাইলের শেয়ার লিংক দিন।");
+    const created: string[] = [];
+    const errors: string[] = [];
+    for (const id of ids) {
+      try {
+        const img = await downloadDriveImage(id);
+        const ext = img.name.includes(".") ? img.name.split(".").pop()!.toLowerCase() : "jpg";
+        const path = `${context.userId}/${crypto.randomUUID()}.${ext}`;
+        const up = await context.supabase.storage.from("post-images").upload(path, img.bytes, { contentType: img.contentType });
+        if (up.error) throw new Error(up.error.message);
+        const { data: row, error } = await context.supabase.from("posts").insert({ user_id: context.userId, image_path: path }).select("id").single();
+        if (error) throw new Error(error.message);
+        created.push(row.id);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+      }
+    }
+    return { created, errors };
+  });
+
 export const syncSheet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
