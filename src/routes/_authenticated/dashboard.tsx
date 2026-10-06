@@ -91,48 +91,67 @@ function Dashboard() {
     tab === "posted" ? p.status === "posted" : tab === "failed" ? p.status === "failed" : tab === "scheduled" ? p.status === "scheduled" || p.status === "posting" : p.status === "draft",
   );
 
+  const scheduledCount = (counts["scheduled"] ?? 0) + (counts["posting"] ?? 0);
+  const stats = [
+    { k: "draft", label: "Review বাকি", n: counts["draft"] ?? 0 },
+    { k: "scheduled", label: "Scheduled", n: scheduledCount },
+    { k: "posted", label: "Posted", n: counts["posted"] ?? 0 },
+    { k: "failed", label: "Failed", n: counts["failed"] ?? 0 },
+  ];
+
   return (
     <div className="min-h-screen">
-      <header className="border-b bg-card/60 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <h1 className="text-2xl font-extrabold">
-            Post<span className="text-primary">Pilot</span>
+      <header className="sticky top-0 z-20 border-b bg-card/80 backdrop-blur">
+        <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-6">
+          <h1 className="truncate text-xl font-extrabold sm:text-2xl">
+            Auto <span className="text-primary">Posts</span>
           </h1>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span className="hidden sm:inline">{user.email}</span>
-            <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
-              Sign out
-            </Button>
+          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+            <span className="hidden max-w-[220px] truncate md:inline">{user.email}</span>
+            <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>Sign out</Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          <div className="space-y-6">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {stats.map((s) => (
+            <button
+              key={s.k}
+              onClick={() => { setTab(s.k); document.getElementById("posts")?.scrollIntoView({ behavior: "smooth" }); }}
+              className={`rounded-2xl border bg-card p-4 text-left shadow-card transition hover:border-primary ${tab === s.k ? "border-primary ring-1 ring-primary" : ""}`}
+            >
+              <div className="text-xs text-muted-foreground sm:text-sm">{s.label}</div>
+              <div className={`mt-1 text-2xl font-extrabold sm:text-3xl ${s.k === "failed" && s.n > 0 ? "text-destructive" : ""}`}>{s.n}</div>
+            </button>
+          ))}
+        </div>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold">১. ডিজাইন যোগ করুন</h2>
+          <div className="grid gap-4 lg:grid-cols-2">
             <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
             <DriveImport userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
           </div>
-          <div className="space-y-6">
-            <FacebookSettings />
-            <SheetSettings userId={user.id} onSaved={syncQuiet} />
-          </div>
-        </div>
+        </section>
 
-        <section>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <section id="posts" className="scroll-mt-20 space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <h2 className="text-lg font-bold">২. রিভিউ ও শিডিউল</h2>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={async () => { await syncQuiet(); toast.success("Google Sheet আপডেট হয়েছে"); }}>
+              Sync to Google Sheet
+            </Button>
+          </div>
+          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <Tabs value={tab} onValueChange={setTab}>
-              <TabsList>
-                {["draft", "scheduled", "posted", "failed"].map((k) => (
-                  <TabsTrigger key={k} value={k}>
-                    {STATUS_LABEL[k]} <span className="ml-1.5 text-xs opacity-60">{k === "scheduled" ? (counts["scheduled"] ?? 0) + (counts["posting"] ?? 0) : counts[k] ?? 0}</span>
+              <TabsList className="w-max">
+                {stats.map((s) => (
+                  <TabsTrigger key={s.k} value={s.k}>
+                    {s.label} <span className="ml-1.5 text-xs opacity-60">{s.n}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
-            <Button variant="outline" size="sm" onClick={async () => { await syncQuiet(); toast.success("Google Sheet আপডেট হয়েছে"); }}>
-              Sync to Google Sheet
-            </Button>
           </div>
 
           {posts.isLoading ? (
@@ -140,12 +159,20 @@ function Dashboard() {
           ) : shown.length === 0 ? (
             <div className="rounded-2xl border border-dashed p-12 text-center text-muted-foreground">এখানে কোনো পোস্ট নেই।</div>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {shown.map((p) => (
                 <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} onChange={async () => { refresh(); await syncQuiet(); }} />
               ))}
             </div>
           )}
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold">৩. সেটিংস</h2>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <FacebookSettings />
+            <SheetSettings userId={user.id} onSaved={syncQuiet} />
+          </div>
         </section>
       </main>
     </div>
