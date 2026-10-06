@@ -118,7 +118,7 @@ function Dashboard() {
               <TabsList>
                 {["draft", "scheduled", "posted", "failed"].map((k) => (
                   <TabsTrigger key={k} value={k}>
-                    {STATUS_LABEL[k]} <span className="ml-1.5 text-xs opacity-60">{k === "scheduled" ? (counts.scheduled ?? 0) + (counts.posting ?? 0) : counts[k] ?? 0}</span>
+                    {STATUS_LABEL[k]} <span className="ml-1.5 text-xs opacity-60">{k === "scheduled" ? (counts["scheduled"] ?? 0) + (counts["posting"] ?? 0) : counts[k] ?? 0}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -224,9 +224,9 @@ function SheetSettings({ userId, onSaved }: { userId: string; onSaved: () => voi
 
   async function save() {
     const id = url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1] ?? url.trim();
-    if (!id) return toast.error("Sheet link দিন");
+    if (!id) { toast.error("Sheet link দিন"); return; }
     const { error } = await supabase.from("settings").upsert({ user_id: userId, spreadsheet_id: id, sheet_name: sheetName || "Sheet1", updated_at: new Date().toISOString() });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setSaved(id);
     toast.success("Sheet সেভ হয়েছে");
     onSaved();
@@ -250,7 +250,7 @@ function SheetSettings({ userId, onSaved }: { userId: string; onSaved: () => voi
   );
 }
 
-function PostCard({ post, img, onChange }: { post: Post; img?: string; onChange: () => void }) {
+function PostCard({ post, img, onChange }: { post: Post; img?: string | undefined; onChange: () => void }) {
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const [caption, setCaption] = useState(post.caption);
