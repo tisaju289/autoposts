@@ -153,10 +153,15 @@ export async function publishToFacebook(
 }
 
 /** Publish one post row that has already been claimed (status = posting). */
-export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string }) {
+export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string; user_id?: string }) {
   try {
+    let creds: { pageId?: string | null; token?: string | null } | undefined;
+    if (post.user_id) {
+      const { data: s } = await db.from("settings").select("fb_page_id, fb_token").eq("user_id", post.user_id).maybeSingle();
+      if (s?.fb_page_id && s?.fb_token) creds = { pageId: s.fb_page_id, token: s.fb_token };
+    }
     const url = await signedUrl(db, post.image_path, 3600);
-    const fbId = await publishToFacebook(url, post.caption);
+    const fbId = await publishToFacebook(url, post.caption, creds);
     await db
       .from("posts")
       .update({ status: "posted", fb_post_id: fbId, posted_at: new Date().toISOString(), error: null })
