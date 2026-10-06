@@ -231,6 +231,30 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
   );
 }
 
+function FacebookSettings() {
+  const status = useServerFn(facebookStatus);
+  const q = useQuery({ queryKey: ["fb-status"], queryFn: () => status() });
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h3 className="text-lg font-bold">Facebook Page</h3>
+      <p className="mt-1 text-sm text-muted-foreground">এই Page-এ আপনার পোস্টগুলো যাবে।</p>
+      <div className="mt-4 flex items-center gap-2">
+        {q.isLoading ? (
+          <Badge variant="secondary">চেক হচ্ছে…</Badge>
+        ) : q.data?.connected ? (
+          <Badge className="bg-green-600 text-white hover:bg-green-600">✓ Connected</Badge>
+        ) : (
+          <Badge variant="destructive">Connected নয়</Badge>
+        )}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Page ID বা Token বদলাতে চাইলে চ্যাটে লিখুন — আমি নিরাপদ ফর্ম দেখিয়ে দেব।
+      </p>
+    </div>
+  );
+}
+
 function SheetSettings({ userId, onSaved }: { userId: string; onSaved: () => void }) {
   const [url, setUrl] = useState("");
   const [sheetName, setSheetName] = useState("Sheet1");
