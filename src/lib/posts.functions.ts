@@ -23,16 +23,20 @@ export const importDriveLinks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ links: z.string().min(1).max(20000) }).parse(d))
   .handler(async ({ data, context }) => {
-    const { downloadDriveImage } = await import("./integrations.server");
-    const ids = [
-      ...new Set(
-        data.links
-          .split(/[\s,]+/)
-          .map((s) => s.match(/\/d\/([a-zA-Z0-9_-]{10,})/)?.[1] ?? s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/)?.[1] ?? (s.match(/^[a-zA-Z0-9_-]{10,}$/)?.[0] ?? null))
-          .filter((x): x is string => Boolean(x)),
-      ),
-    ].slice(0, 50);
-    if (!ids.length) throw new Error("কোনো Drive লিংক পাওয়া যায়নি। ফাইলের শেয়ার লিংক দিন।");
+    const { downloadDriveImage, listDriveFolderImages } = await import("./integrations.server");
+    const tokens = data.links.split(/[\s,]+/).filter(Boolean);
+    const all: string[] = [];
+    for (const s of tokens) {
+      const folder = s.match(/\/folders\/([a-zA-Z0-9_-]{10,})/)?.[1];
+      if (folder) {
+        all.push(...(await listDriveFolderImages(folder)));
+        continue;
+      }
+      const id = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/)?.[1] ?? s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/)?.[1] ?? s.match(/^[a-zA-Z0-9_-]{10,}$/)?.[0];
+      if (id) all.push(id);
+    }
+    const ids = [...new Set(all)].slice(0, 50);
+    if (!ids.length) throw new Error("কোনো ছবি পাওয়া যায়নি। ফাইল বা ফোল্ডারের শেয়ার লিংক দিন।");
     const created: string[] = [];
     const errors: string[] = [];
     for (const id of ids) {

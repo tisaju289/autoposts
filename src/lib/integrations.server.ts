@@ -55,6 +55,29 @@ export async function generateBanglaCaption(imageUrl: string, hint?: string) {
 const SHEETS = "https://connector-gateway.lovable.dev/google_sheets/v4";
 const DRIVE = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
 
+/** Lists image file IDs inside a Google Drive folder (sorted by name). */
+export async function listDriveFolderImages(folderId: string): Promise<string[]> {
+  const lk = process.env["LOVABLE_API_KEY"];
+  const dk = process.env["GOOGLE_DRIVE_API_KEY"];
+  if (!lk || !dk) throw new Error("Google Drive সংযুক্ত নয়।");
+  const headers = { Authorization: `Bearer ${lk}`, "X-Connection-Api-Key": dk };
+  const ids: string[] = [];
+  let pageToken = "";
+  do {
+    const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed = false`);
+    const url = `${DRIVE}/files?q=${q}&fields=nextPageToken,files(id)&orderBy=name&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true${pageToken ? `&pageToken=${pageToken}` : ""}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Drive ফোল্ডার পড়া যায়নি [${res.status}]: ${body.slice(0, 200)}`);
+    }
+    const j = (await res.json()) as { nextPageToken?: string; files?: { id: string }[] };
+    ids.push(...(j.files ?? []).map((f) => f.id));
+    pageToken = j.nextPageToken ?? "";
+  } while (pageToken && ids.length < 200);
+  return ids;
+}
+
 /** Downloads an image from the user's Google Drive via the connector gateway. */
 export async function downloadDriveImage(fileId: string): Promise<{ bytes: Uint8Array; contentType: string; name: string }> {
   const lk = process.env["LOVABLE_API_KEY"];
