@@ -271,12 +271,12 @@ function DriveImport({ onDone }: { onDone: () => void }) {
     <div className="rounded-2xl border bg-card p-6 shadow-card">
       <h3 className="text-lg font-bold">Google Drive থেকে আনুন</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Drive-এ ছবি আপলোড করে প্রতিটি ফাইলের শেয়ার লিংক এখানে পেস্ট করুন — প্রতি লাইনে একটি। ছবিগুলো নিজে থেকেই এসে পোস্ট তৈরি হবে (সর্বোচ্চ ৫০টি, 20MB পর্যন্ত)।
+        Drive <b>ফোল্ডারের লিংক</b> দিলে ভেতরের সব ছবি চলে আসবে। চাইলে আলাদা ফাইলের লিংকও দিতে পারেন — প্রতি লাইনে একটি (একবারে সর্বোচ্চ ৫০টি, 20MB পর্যন্ত)।
       </p>
       <Textarea
         className="mt-3"
         rows={4}
-        placeholder={"https://drive.google.com/file/d/.../view\nhttps://drive.google.com/file/d/.../view"}
+        placeholder={"https://drive.google.com/drive/folders/...\nঅথবা https://drive.google.com/file/d/.../view"}
         value={links}
         onChange={(e) => setLinks(e.target.value)}
       />
