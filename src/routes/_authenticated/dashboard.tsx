@@ -145,6 +145,27 @@ function Dashboard() {
   );
 }
 
+// Shrink large images to max 2048px JPEG (<~3MB) so uploads never exceed the size limit.
+async function compressImage(file: File): Promise<Blob> {
+  const bmp = await createImageBitmap(file);
+  const max = 2048;
+  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close();
+  let q = 0.9;
+  let blob: Blob = await new Promise((r) => canvas.toBlob((b) => r(b!), "image/jpeg", q));
+  while (blob.size > 3 * 1024 * 1024 && q > 0.4) {
+    q -= 0.1;
+    blob = await new Promise((r) => canvas.toBlob((b) => r(b!), "image/jpeg", q));
+  }
+  return blob;
+}
+
 function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
   const gen = useServerFn(generateCaption);
   const input = useRef<HTMLInputElement>(null);
@@ -156,10 +177,10 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
     if (!list.length) return;
     setProgress({ done: 0, total: list.length });
     const ids: string[] = [];
-    for (const f of list) {
-      const ext = f.name.split(".").pop() || "jpg";
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-      const up = await supabase.storage.from("post-images").upload(path, f, { contentType: f.type });
+    for (const orig of list) {
+      const f = await compressImage(orig);
+      const path = `${userId}/${crypto.randomUUID()}.jpg`;
+      const up = await supabase.storage.from("post-images").upload(path, f, { contentType: "image/jpeg" });
       if (up.error) { toast.error(`${f.name}: ${up.error.message}`); continue; }
       const { data, error } = await supabase.from("posts").insert({ user_id: userId, image_path: path }).select("id").single();
       if (error) { toast.error(error.message); continue; }
