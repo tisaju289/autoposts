@@ -200,7 +200,14 @@ export async function publishToFacebook(
   const rawToken = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
   if (!pageId || !rawToken) throw new Error("Facebook Page যুক্ত করা হয়নি (Page ID / Token নেই)।");
   const token = await resolvePageToken(rawToken, pageId);
-  const body = new URLSearchParams({ url: imageUrl, message: caption, access_token: token });
+  // Upload the image bytes directly — more reliable than letting Facebook fetch a signed URL.
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) throw new Error(`ছবি পড়া যায়নি [${imgRes.status}]`);
+  const blob = await imgRes.blob();
+  const body = new FormData();
+  body.append("source", blob, "image.jpg");
+  body.append("message", caption);
+  body.append("access_token", token);
   const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
     method: "POST",
     body,
@@ -208,10 +215,13 @@ export async function publishToFacebook(
   const json = (await res.json().catch(() => ({}))) as {
     id?: string;
     post_id?: string;
-    error?: { message?: string };
+    error?: { message?: string; error_user_msg?: string; error_user_title?: string };
   };
   if (!res.ok || json.error) {
-    throw new Error(`Facebook [${res.status}]: ${json.error?.message ?? "unknown error"}`);
+    const detail = json.error?.error_user_msg || json.error?.error_user_title || "";
+    throw new Error(
+      `Facebook [${res.status}]: ${json.error?.message ?? "unknown error"}${detail ? ` — ${detail}` : ""}`,
+    );
   }
   return json.post_id ?? json.id ?? "";
 }
