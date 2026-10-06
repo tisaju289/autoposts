@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { facebookStatus, generateCaption, importDriveLinks, publishNow, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LayoutDashboard, ImagePlus, CalendarClock, Settings, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -99,21 +99,52 @@ function Dashboard() {
     { k: "failed", label: "Failed", n: counts["failed"] ?? 0 },
   ];
 
-  return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b bg-card/80 backdrop-blur">
-        <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 sm:px-6">
-          <h1 className="truncate text-xl font-extrabold sm:text-2xl">
-            Auto <span className="text-primary">Posts</span>
-          </h1>
-          <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-            <span className="hidden max-w-[220px] truncate md:inline">{user.email}</span>
-            <Button variant="outline" size="sm" onClick={() => supabase.auth.signOut()}>Sign out</Button>
-          </div>
-        </div>
-      </header>
+  const [active, setActive] = useState("top");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navCounts = { draft: counts["draft"] ?? 0, scheduled: scheduledCount, posted: counts["posted"] ?? 0, failed: counts["failed"] ?? 0 };
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+  const go = (k: string) => {
+    setActive(k);
+    setMenuOpen(false);
+    if (k === "top") window.scrollTo({ top: 0, behavior: "smooth" });
+    else document.getElementById(k)?.scrollIntoView({ behavior: "smooth" });
+  };
+  const signOut = async () => {
+    setMenuOpen(false);
+    await supabase.auth.signOut();
+    router.navigate({ to: "/auth" });
+  };
+
+  return (
+    <div className="flex min-h-screen w-full">
+      <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="sticky top-0 hidden h-screen shrink-0 lg:flex lg:w-64" />
+
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-foreground/40" onClick={() => setMenuOpen(false)} />
+          <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw]" onClose={() => setMenuOpen(false)} />
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b bg-card/90 px-4 backdrop-blur sm:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <button className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted lg:hidden" aria-label="মেনু" onClick={() => setMenuOpen(true)}>
+              <Menu className="h-5 w-5" />
+            </button>
+            <span className="font-display truncate text-xl font-extrabold lg:hidden">
+              Auto <span className="text-primary">Posts</span>
+            </span>
+          </div>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="hidden max-w-[220px] truncate text-sm text-muted-foreground sm:inline">{user.email}</span>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+              {(user.email ?? "?")[0]?.toUpperCase() ?? "?"}
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {stats.map((s) => (
             <button
@@ -127,7 +158,7 @@ function Dashboard() {
           ))}
         </div>
 
-        <section className="space-y-3">
+        <section id="add-design" className="scroll-mt-24 space-y-3">
           <h2 className="text-lg font-bold">১. ডিজাইন যোগ করুন</h2>
           <div className="grid gap-4 lg:grid-cols-2">
             <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
@@ -135,7 +166,7 @@ function Dashboard() {
           </div>
         </section>
 
-        <section id="posts" className="scroll-mt-20 space-y-4">
+        <section id="posts" className="scroll-mt-24 space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <h2 className="text-lg font-bold">২. রিভিউ ও শিডিউল</h2>
             <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={async () => { await syncQuiet(); toast.success("Google Sheet আপডেট হয়েছে"); }}>
@@ -167,7 +198,7 @@ function Dashboard() {
           )}
         </section>
 
-        <section className="space-y-3">
+        <section id="settings" className="scroll-mt-24 space-y-3">
           <h2 className="text-lg font-bold">৩. সেটিংস</h2>
           <div className="grid gap-4 lg:grid-cols-2">
             <FacebookSettings />
@@ -175,7 +206,96 @@ function Dashboard() {
           </div>
         </section>
       </main>
+      </div>
     </div>
+  );
+}
+
+function SidebarContent({
+  email,
+  counts,
+  active,
+  onNav,
+  onSignOut,
+  className = "",
+  onClose,
+}: {
+  email?: string;
+  counts: { draft: number; scheduled: number; posted: number; failed: number };
+  active: string;
+  onNav: (k: string) => void;
+  onSignOut: () => void;
+  className?: string;
+  onClose?: () => void;
+}) {
+  const items = [
+    { k: "top", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
+    { k: "add-design", label: "ডিজাইন যোগ করুন", icon: ImagePlus },
+    { k: "posts", label: "রিভিউ ও শিডিউল", icon: CalendarClock, badge: counts.draft },
+    { k: "settings", label: "সেটিংস", icon: Settings },
+  ];
+  const stats = [
+    { label: "Scheduled", n: counts.scheduled },
+    { label: "Posted", n: counts.posted },
+    { label: "Failed", n: counts.failed, danger: counts.failed > 0 },
+  ];
+
+  return (
+    <aside className={`z-50 flex-col border-r bg-card ${className}`}>
+      <div className="flex items-start justify-between gap-2 p-6 pb-4">
+        <div className="min-w-0">
+          <div className="font-display text-2xl font-extrabold tracking-tight">
+            <span className="text-primary">Auto</span>
+            <span className="text-foreground">Posts</span>
+          </div>
+          <p className="mt-1 ml-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">By Ti Saju</p>
+        </div>
+        {onClose && (
+          <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted" aria-label="বন্ধ করুন" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+
+      <nav className="flex-1 space-y-1.5 overflow-y-auto px-4 py-4">
+        {items.map((it) => (
+          <button
+            key={it.k}
+            onClick={() => onNav(it.k)}
+            className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+              active === it.k ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <it.icon className="h-5 w-5 shrink-0" />
+              <span className="truncate">{it.label}</span>
+            </span>
+            {!!it.badge && (
+              <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-secondary-foreground">{it.badge}</span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      <div className="border-t p-4">
+        <div className="mb-4 flex flex-col gap-1 text-[11px] text-muted-foreground">
+          {stats.map((s) => (
+            <div key={s.label} className="flex justify-between">
+              <span>{s.label}:</span>
+              <span className={`font-semibold ${s.danger ? "text-destructive" : "text-foreground"}`}>{s.n}</span>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onSignOut}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/20 px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/5"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>লগ আউট</span>
+        </button>
+        {email && <p className="mt-2 truncate text-center text-[10px] text-muted-foreground">{email}</p>}
+      </div>
+    </aside>
   );
 }
 
