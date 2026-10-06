@@ -128,9 +128,13 @@ export async function syncSheetForUser(db: DB, userId: string) {
 }
 
 /** Posts a photo to the Facebook Page. Returns the Facebook post id. */
-export async function publishToFacebook(imageUrl: string, caption: string) {
-  const pageId = process.env["FACEBOOK_PAGE_ID"];
-  const token = process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+export async function publishToFacebook(
+  imageUrl: string,
+  caption: string,
+  creds?: { pageId?: string | null; token?: string | null },
+) {
+  const pageId = creds?.pageId || process.env["FACEBOOK_PAGE_ID"];
+  const token = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
   if (!pageId || !token) throw new Error("Facebook Page যুক্ত করা হয়নি (Page ID / Token নেই)।");
   const body = new URLSearchParams({ url: imageUrl, message: caption, access_token: token });
   const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
