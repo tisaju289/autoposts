@@ -116,7 +116,6 @@ function Dashboard() {
           <div className="space-y-6">
             <FacebookSettings />
             <SheetSettings userId={user.id} onSaved={syncQuiet} />
-            <DriveSettings userId={user.id} />
           </div>
         </div>
 
@@ -450,45 +449,6 @@ function SheetSettings({ userId, onSaved }: { userId: string; onSaved: () => voi
         {saved && (
           <a className="block text-center text-sm text-primary underline-offset-4 hover:underline" href={`https://docs.google.com/spreadsheets/d/${saved}/edit`} target="_blank" rel="noreferrer">
             Sheet খুলুন ↗
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DriveSettings({ userId }: { userId: string }) {
-  const [url, setUrl] = useState("");
-  const [saved, setSaved] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.from("settings").select("drive_folder_id").eq("user_id", userId).maybeSingle().then(({ data }) => {
-      if (data?.drive_folder_id) {
-        setSaved(data.drive_folder_id);
-        setUrl(`https://drive.google.com/drive/folders/${data.drive_folder_id}`);
-      }
-    });
-  }, [userId]);
-
-  async function save() {
-    const id = url.match(/\/folders\/([a-zA-Z0-9-_]+)/)?.[1] ?? url.trim();
-    if (!id) { toast.error("Drive ফোল্ডারের লিংক দিন"); return; }
-    const { error } = await supabase.from("settings").upsert({ user_id: userId, drive_folder_id: id, updated_at: new Date().toISOString() });
-    if (error) { toast.error(error.message); return; }
-    setSaved(id);
-    toast.success("Drive ফোল্ডার সেভ হয়েছে");
-  }
-
-  return (
-    <div className="rounded-2xl border bg-card p-6 shadow-card">
-      <h3 className="text-lg font-bold">Google Drive ফোল্ডার</h3>
-      <p className="mt-1 text-sm text-muted-foreground">আপনার ডিজাইনের ফোল্ডারের লিংক সেভ করে রাখুন — পরে এক ক্লিকে ছবি আনা সহজ হবে।</p>
-      <div className="mt-4 space-y-2">
-        <Input placeholder="https://drive.google.com/drive/folders/..." value={url} onChange={(e) => setUrl(e.target.value)} />
-        <Button className="w-full" variant="secondary" onClick={save}>Save</Button>
-        {saved && (
-          <a className="block text-center text-sm text-primary underline-offset-4 hover:underline" href={`https://drive.google.com/drive/folders/${saved}`} target="_blank" rel="noreferrer">
-            ফোল্ডার খুলুন ↗
           </a>
         )}
       </div>
