@@ -149,26 +149,7 @@ function Dashboard() {
   );
 }
 
-// Shrink large images to max 2048px JPEG (<~3MB) so uploads never exceed the size limit.
-async function compressImage(file: File): Promise<Blob> {
-  const bmp = await createImageBitmap(file);
-  const max = 2048;
-  const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
-  const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(bmp, 0, 0, w, h);
-  bmp.close();
-  let q = 0.9;
-  let blob: Blob = await new Promise((r) => canvas.toBlob((b) => r(b!), "image/jpeg", q));
-  while (blob.size > 3 * 1024 * 1024 && q > 0.4) {
-    q -= 0.1;
-    blob = await new Promise((r) => canvas.toBlob((b) => r(b!), "image/jpeg", q));
-  }
-  return blob;
-}
+// Upload the original file untouched — no resizing or quality change (limit: 20MB).
 
 function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
   const gen = useServerFn(generateCaption);
@@ -182,9 +163,13 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
     setProgress({ done: 0, total: list.length });
     const ids: string[] = [];
     for (const orig of list) {
-      const f = await compressImage(orig);
-      const path = `${userId}/${crypto.randomUUID()}.jpg`;
-      const up = await supabase.storage.from("post-images").upload(path, f, { contentType: "image/jpeg" });
+      if (orig.size > 20 * 1024 * 1024) {
+        toast.error(`${orig.name}: ফাইলটি 20MB-এর বেশি — আপলোড হয়নি`);
+        continue;
+      }
+      const ext = orig.name.includes(".") ? orig.name.split(".").pop()!.toLowerCase() : "jpg";
+      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const up = await supabase.storage.from("post-images").upload(path, orig, { contentType: orig.type || "image/jpeg" });
       if (up.error) { toast.error(`${orig.name}: ${up.error.message}`); continue; }
       const { data, error } = await supabase.from("posts").insert({ user_id: userId, image_path: path }).select("id").single();
       if (error) { toast.error(error.message); continue; }
