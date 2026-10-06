@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { generateCaption, publishNow, syncSheet } from "@/lib/posts.functions";
+import { facebookStatus, generateCaption, publishNow, syncSheet } from "@/lib/posts.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -109,7 +109,10 @@ function Dashboard() {
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
-          <SheetSettings userId={user.id} onSaved={syncQuiet} />
+          <div className="space-y-6">
+            <FacebookSettings />
+            <SheetSettings userId={user.id} onSaved={syncQuiet} />
+          </div>
         </div>
 
         <section>
