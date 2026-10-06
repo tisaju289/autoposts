@@ -55,6 +55,7 @@ export type Database = {
       }
       settings: {
         Row: {
+          drive_folder_id: string | null
           fb_page_id: string | null
           fb_token: string | null
           sheet_name: string
@@ -63,6 +64,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          drive_folder_id?: string | null
           fb_page_id?: string | null
           fb_token?: string | null
           sheet_name?: string
@@ -71,6 +73,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          drive_folder_id?: string | null
           fb_page_id?: string | null
           fb_token?: string | null
           sheet_name?: string

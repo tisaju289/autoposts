@@ -1,0 +1,1 @@
+alter table public.settings add column if not exists drive_folder_id text;
