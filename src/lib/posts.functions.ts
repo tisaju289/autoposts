@@ -71,12 +71,29 @@ export const facebookStatus = createServerFn({ method: "GET" })
       .select("fb_page_id, fb_token")
       .eq("user_id", context.userId)
       .maybeSingle();
-    const fromSettings = Boolean(s?.fb_page_id && s?.fb_token);
-    const fromEnv = Boolean(process.env["FACEBOOK_PAGE_ID"] && process.env["FACEBOOK_PAGE_ACCESS_TOKEN"]);
+    const pageId = s?.fb_page_id || process.env["FACEBOOK_PAGE_ID"];
+    const token = s?.fb_token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+    let instagram: { connected: boolean; username: string | null } = { connected: false, username: null };
+    if (pageId && token) {
+      try {
+        const res = await fetch(
+          `https://graph.facebook.com/v21.0/${pageId}?fields=instagram_business_account{id,username}&access_token=${encodeURIComponent(token)}`,
+        );
+        const j = (await res.json().catch(() => ({}))) as {
+          instagram_business_account?: { id?: string; username?: string };
+        };
+        if (j.instagram_business_account?.id) {
+          instagram = { connected: true, username: j.instagram_business_account.username ?? null };
+        }
+      } catch {
+        /* Instagram not reachable with this token */
+      }
+    }
     return {
-      connected: fromSettings || fromEnv,
+      connected: Boolean(pageId && token),
       pageId: s?.fb_page_id ?? null,
       hasToken: Boolean(s?.fb_token),
+      instagram,
     };
   });
 

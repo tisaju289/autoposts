@@ -162,14 +162,14 @@ export async function syncSheetForUser(db: DB, userId: string) {
   const sheet = `'${settings.sheet_name.replace(/'/g, "''")}'`;
   const id = settings.spreadsheet_id;
   const h = sheetHeaders();
-  const clear = await fetch(`${SHEETS}/spreadsheets/${id}/values/${sheet}!A:G:clear`, {
+  const clear = await fetch(`${SHEETS}/spreadsheets/${id}/values/${sheet}!A:H:clear`, {
     method: "POST",
     headers: h,
     body: "{}",
   });
   if (!clear.ok) throw new Error(`Sheet error [${clear.status}]: ${(await clear.text()).slice(0, 300)}`);
   const put = await fetch(
-    `${SHEETS}/spreadsheets/${id}/values/${sheet}!A1:G${rows.length}?valueInputOption=RAW`,
+    `${SHEETS}/spreadsheets/${id}/values/${sheet}!A1:H${rows.length}?valueInputOption=RAW`,
     { method: "PUT", headers: h, body: JSON.stringify({ values: rows }) },
   );
   if (!put.ok) throw new Error(`Sheet error [${put.status}]: ${(await put.text()).slice(0, 300)}`);
