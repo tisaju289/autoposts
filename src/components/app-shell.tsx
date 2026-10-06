@@ -35,9 +35,9 @@ export function AppShell({
       (data ?? []).forEach((p: { status: string }) => (c[p.status] = (c[p.status] ?? 0) + 1));
       return {
         draft: c.draft ?? 0,
-        scheduled: (c.scheduled ?? 0) + (c.posting ?? 0),
-        posted: c.posted ?? 0,
-        failed: c.failed ?? 0,
+        scheduled: (c["scheduled"] ?? 0) + (c["posting"] ?? 0),
+        posted: c["posted"] ?? 0,
+        failed: c["failed"] ?? 0,
       };
     },
     refetchInterval: 60_000,
@@ -103,10 +103,10 @@ function SidebarContent({
   email?: string | undefined;
   counts: NavCounts;
   active: string;
-  onNav?: (k: string) => void;
+  onNav?: ((k: string) => void) | undefined;
   onSignOut: () => void;
   className?: string;
-  onClose?: () => void;
+  onClose?: (() => void) | undefined;
 }) {
   const items = [
     { k: "top", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
