@@ -18,9 +18,9 @@ type Post = Database["public"]["Tables"]["posts"]["Row"];
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — PostPilot" },
+      { title: "Dashboard — Auto Posts" },
       { name: "description", content: "Review captions and schedule your Facebook Page posts." },
-      { property: "og:title", content: "Dashboard — PostPilot" },
+      { property: "og:title", content: "Dashboard — Auto Posts" },
       { property: "og:description", content: "Review captions and schedule your Facebook Page posts." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
