@@ -168,16 +168,7 @@ function Dashboard() {
           )}
         </section>
 
-        <section id="settings" className="scroll-mt-24 space-y-3">
-          <h2 className="text-lg font-bold">৩. সেটিংস</h2>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <FacebookSettings />
-            <SheetSettings userId={user.id} onSaved={syncQuiet} />
-          </div>
-        </section>
-      </main>
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
