@@ -4,8 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { facebookStatus, generateCaption, importDriveLinks, publishNow, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
-import { Eye, EyeOff, LayoutDashboard, ImagePlus, CalendarClock, Settings, LogOut, Menu, X } from "lucide-react";
+import { generateCaption, importDriveLinks, publishNow, syncSheet } from "@/lib/posts.functions";
+import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -101,51 +101,20 @@ function Dashboard() {
   ];
 
   const [active, setActive] = useState("top");
-  const [menuOpen, setMenuOpen] = useState(false);
   const navCounts = { draft: counts["draft"] ?? 0, scheduled: scheduledCount, posted: counts["posted"] ?? 0, failed: counts["failed"] ?? 0 };
 
   const go = (k: string) => {
     setActive(k);
-    setMenuOpen(false);
+    if (k === "settings") {
+      router.navigate({ to: "/settings" });
+      return;
+    }
     if (k === "top") window.scrollTo({ top: 0, behavior: "smooth" });
     else document.getElementById(k)?.scrollIntoView({ behavior: "smooth" });
   };
-  const signOut = async () => {
-    setMenuOpen(false);
-    await supabase.auth.signOut();
-    router.navigate({ to: "/auth" });
-  };
 
   return (
-    <div className="flex min-h-screen w-full">
-      <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="sticky top-0 hidden h-screen shrink-0 lg:flex lg:w-64" />
-
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40" onClick={() => setMenuOpen(false)} />
-          <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw]" onClose={() => setMenuOpen(false)} />
-        </div>
-      )}
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b bg-card/90 px-4 backdrop-blur sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <button className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted lg:hidden" aria-label="মেনু" onClick={() => setMenuOpen(true)}>
-              <Menu className="h-5 w-5" />
-            </button>
-            <span className="font-display truncate text-xl font-extrabold lg:hidden">
-              Auto <span className="text-primary">Posts</span>
-            </span>
-          </div>
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="hidden max-w-[220px] truncate text-sm text-muted-foreground sm:inline">{user.email}</span>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-              {(user.email ?? "?")[0]?.toUpperCase() ?? "?"}
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <AppShell email={user.email} userId={user.id} counts={navCounts} active={active} onNav={go}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {stats.map((s) => (
             <button
