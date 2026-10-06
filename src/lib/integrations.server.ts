@@ -134,8 +134,19 @@ export async function publishToFacebook(
   creds?: { pageId?: string | null; token?: string | null },
 ) {
   const pageId = creds?.pageId || process.env["FACEBOOK_PAGE_ID"];
-  const token = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
-  if (!pageId || !token) throw new Error("Facebook Page যুক্ত করা হয়নি (Page ID / Token নেই)।");
+  const rawToken = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+  if (!pageId || !rawToken) throw new Error("Facebook Page যুক্ত করা হয়নি (Page ID / Token নেই)।");
+  // If a user (profile) token was saved, exchange it for the Page's own token.
+  let token = rawToken;
+  try {
+    const r = await fetch(
+      `https://graph.facebook.com/v21.0/${pageId}?fields=access_token&access_token=${encodeURIComponent(rawToken)}`,
+    );
+    const j = (await r.json().catch(() => ({}))) as { access_token?: string };
+    if (j.access_token) token = j.access_token;
+  } catch {
+    /* keep raw token */
+  }
   const body = new URLSearchParams({ url: imageUrl, message: caption, access_token: token });
   const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
     method: "POST",
