@@ -111,7 +111,7 @@ function Dashboard() {
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-6">
             <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
-            <DriveImport onDone={async () => { refresh(); await syncQuiet(); }} />
+            <DriveImport userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
           </div>
           <div className="space-y-6">
             <FacebookSettings />
@@ -221,12 +221,18 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
   );
 }
 
-function DriveImport({ onDone }: { onDone: () => void }) {
+function DriveImport({ userId, onDone }: { userId: string; onDone: () => void }) {
   const imp = useServerFn(importDriveLinks);
   const gen = useServerFn(generateCaption);
   const [links, setLinks] = useState("");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  useEffect(() => {
+    supabase.from("settings").select("drive_folder_id").eq("user_id", userId).maybeSingle().then(({ data }) => {
+      if (data?.drive_folder_id) setLinks((l) => l || `https://drive.google.com/drive/folders/${data.drive_folder_id}`);
+    });
+  }, [userId]);
 
   async function run() {
     if (!links.trim()) { toast.error("Drive লিংক পেস্ট করুন"); return; }
