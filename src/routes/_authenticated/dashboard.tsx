@@ -4,8 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { facebookStatus, generateCaption, importDriveLinks, publishNow, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
-import { Eye, EyeOff, LayoutDashboard, ImagePlus, CalendarClock, Settings, LogOut, Menu, X } from "lucide-react";
+import { generateCaption, importDriveLinks, publishNow, syncSheet } from "@/lib/posts.functions";
+import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -101,51 +101,20 @@ function Dashboard() {
   ];
 
   const [active, setActive] = useState("top");
-  const [menuOpen, setMenuOpen] = useState(false);
   const navCounts = { draft: counts["draft"] ?? 0, scheduled: scheduledCount, posted: counts["posted"] ?? 0, failed: counts["failed"] ?? 0 };
 
   const go = (k: string) => {
     setActive(k);
-    setMenuOpen(false);
+    if (k === "settings") {
+      router.navigate({ to: "/settings" });
+      return;
+    }
     if (k === "top") window.scrollTo({ top: 0, behavior: "smooth" });
     else document.getElementById(k)?.scrollIntoView({ behavior: "smooth" });
   };
-  const signOut = async () => {
-    setMenuOpen(false);
-    await supabase.auth.signOut();
-    router.navigate({ to: "/auth" });
-  };
 
   return (
-    <div className="flex min-h-screen w-full">
-      <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="sticky top-0 hidden h-screen shrink-0 lg:flex lg:w-64" />
-
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40" onClick={() => setMenuOpen(false)} />
-          <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw]" onClose={() => setMenuOpen(false)} />
-        </div>
-      )}
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b bg-card/90 px-4 backdrop-blur sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <button className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted lg:hidden" aria-label="মেনু" onClick={() => setMenuOpen(true)}>
-              <Menu className="h-5 w-5" />
-            </button>
-            <span className="font-display truncate text-xl font-extrabold lg:hidden">
-              Auto <span className="text-primary">Posts</span>
-            </span>
-          </div>
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="hidden max-w-[220px] truncate text-sm text-muted-foreground sm:inline">{user.email}</span>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-              {(user.email ?? "?")[0]?.toUpperCase() ?? "?"}
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+    <AppShell email={user.email} userId={user.id} counts={navCounts} active={active} onNav={go}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {stats.map((s) => (
             <button
@@ -199,104 +168,7 @@ function Dashboard() {
           )}
         </section>
 
-        <section id="settings" className="scroll-mt-24 space-y-3">
-          <h2 className="text-lg font-bold">৩. সেটিংস</h2>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <FacebookSettings />
-            <SheetSettings userId={user.id} onSaved={syncQuiet} />
-          </div>
-        </section>
-      </main>
-      </div>
-    </div>
-  );
-}
-
-function SidebarContent({
-  email,
-  counts,
-  active,
-  onNav,
-  onSignOut,
-  className = "",
-  onClose,
-}: {
-  email?: string | undefined;
-  counts: { draft: number; scheduled: number; posted: number; failed: number };
-  active: string;
-  onNav: (k: string) => void;
-  onSignOut: () => void;
-  className?: string;
-  onClose?: () => void;
-}) {
-  const items = [
-    { k: "top", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
-    { k: "add-design", label: "ডিজাইন যোগ করুন", icon: ImagePlus },
-    { k: "posts", label: "রিভিউ ও শিডিউল", icon: CalendarClock, badge: counts.draft },
-    { k: "settings", label: "সেটিংস", icon: Settings },
-  ];
-  const stats = [
-    { label: "Scheduled", n: counts.scheduled },
-    { label: "Posted", n: counts.posted },
-    { label: "Failed", n: counts.failed, danger: counts.failed > 0 },
-  ];
-
-  return (
-    <aside className={`z-50 flex-col border-r bg-card ${className}`}>
-      <div className="flex items-start justify-between gap-2 p-6 pb-4">
-        <div className="min-w-0">
-          <div className="font-display text-2xl font-extrabold tracking-tight">
-            <span className="text-primary">Auto</span>
-            <span className="text-foreground">Posts</span>
-          </div>
-          <p className="mt-1 ml-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">By Ti Saju</p>
-        </div>
-        {onClose && (
-          <button className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted" aria-label="বন্ধ করুন" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </button>
-        )}
-      </div>
-
-      <nav className="flex-1 space-y-1.5 overflow-y-auto px-4 py-4">
-        {items.map((it) => (
-          <button
-            key={it.k}
-            onClick={() => onNav(it.k)}
-            className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-              active === it.k ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <it.icon className="h-5 w-5 shrink-0" />
-              <span className="truncate">{it.label}</span>
-            </span>
-            {!!it.badge && (
-              <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-secondary-foreground">{it.badge}</span>
-            )}
-          </button>
-        ))}
-      </nav>
-
-      <div className="border-t p-4">
-        <div className="mb-4 flex flex-col gap-1 text-[11px] text-muted-foreground">
-          {stats.map((s) => (
-            <div key={s.label} className="flex justify-between">
-              <span>{s.label}:</span>
-              <span className={`font-semibold ${s.danger ? "text-destructive" : "text-foreground"}`}>{s.n}</span>
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={onSignOut}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/20 px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/5"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>লগ আউট</span>
-        </button>
-        {email && <p className="mt-2 truncate text-center text-[10px] text-muted-foreground">{email}</p>}
-      </div>
-    </aside>
+    </AppShell>
   );
 }
 
@@ -437,169 +309,6 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
       <Button className="mt-3 w-full" variant="secondary" disabled={busy} onClick={run}>
         {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : busy ? "Drive থেকে আনা হচ্ছে…" : "Drive থেকে আনুন"}
       </Button>
-    </div>
-  );
-}
-
-function FacebookSettings() {
-  const status = useServerFn(facebookStatus);
-  const save = useServerFn(saveFacebookCreds);
-  const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["fb-status"], queryFn: () => status() });
-  const [pageId, setPageId] = useState("");
-  const [token, setToken] = useState("");
-  const [showId, setShowId] = useState(false);
-  const [showToken, setShowToken] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (q.data?.pageId) setPageId(q.data.pageId);
-  }, [q.data?.pageId]);
-
-  async function onSave() {
-    if (!pageId.trim() || !token.trim()) {
-      toast.error("Page ID আর Token দুটোই দিন");
-      return;
-    }
-    setSaving(true);
-    try {
-      await save({ data: { pageId: pageId.trim(), token: token.trim() } });
-      setToken("");
-      toast.success("Facebook Page সেভ হয়েছে");
-      qc.invalidateQueries({ queryKey: ["fb-status"] });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "সেভ হয়নি");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border bg-card p-6 shadow-card">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-lg font-bold">Facebook Page</h3>
-        {q.isLoading ? (
-          <Badge variant="secondary">চেক হচ্ছে…</Badge>
-        ) : q.data?.connected ? (
-          <Badge className="bg-green-600 text-white hover:bg-green-600">✓ Connected</Badge>
-        ) : (
-          <Badge variant="destructive">Connected নয়</Badge>
-        )}
-      </div>
-      <p className="mt-1 text-sm text-muted-foreground">এই Page-এ আপনার পোস্টগুলো যাবে।</p>
-
-      <div className="mt-4 space-y-3">
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Page ID</label>
-          <div className="relative mt-1">
-            <Input
-              type={showId ? "text" : "password"}
-              value={pageId}
-              onChange={(e) => setPageId(e.target.value)}
-              placeholder="যেমন: 123456789012345"
-              className="pr-10"
-              autoComplete="off"
-            />
-            <button
-              type="button"
-              onClick={() => setShowId((v) => !v)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label={showId ? "লুকান" : "দেখান"}
-            >
-              {showId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-muted-foreground">Page Access Token</label>
-          <div className="relative mt-1">
-            <Input
-              type={showToken ? "text" : "password"}
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder={q.data?.hasToken ? "নতুন Token দিলে আগেরটা বদলে যাবে" : "EAA... দিয়ে শুরু হওয়া Token"}
-              className="pr-10"
-              autoComplete="off"
-            />
-            <button
-              type="button"
-              onClick={() => setShowToken((v) => !v)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label={showToken ? "লুকান" : "দেখান"}
-            >
-              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-        <Button onClick={onSave} disabled={saving} className="w-full">
-          {saving ? "সেভ হচ্ছে…" : "সেভ করুন"}
-        </Button>
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Token নিরাপদে সেভ হয় — সেভের পর আর পুরোটা দেখা যায় না।
-      </p>
-      <div className="mt-4 rounded-xl border p-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold">Instagram</span>
-          {q.isLoading ? (
-            <Badge variant="secondary">চেক হচ্ছে…</Badge>
-          ) : q.data?.instagram?.connected ? (
-            <Badge className="bg-green-600 text-white hover:bg-green-600">
-              ✓ Connected{q.data.instagram.username ? ` (@${q.data.instagram.username})` : ""}
-            </Badge>
-          ) : (
-            <Badge variant="destructive">Connected নয়</Badge>
-          )}
-        </div>
-        {!q.isLoading && !q.data?.instagram?.connected && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Instagram অ্যাকাউন্টকে Professional করে Page-এর সাথে জুড়ুন, তারপর instagram_basic ও instagram_content_publish permission সহ নতুন Token সেভ করুন।
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SheetSettings({ userId, onSaved }: { userId: string; onSaved: () => void }) {
-  const [url, setUrl] = useState("");
-  const [sheetName, setSheetName] = useState("Sheet1");
-  const [saved, setSaved] = useState<string | null>(null);
-
-  useEffect(() => {
-    supabase.from("settings").select("*").eq("user_id", userId).maybeSingle().then(({ data }) => {
-      if (data?.spreadsheet_id) {
-        setSaved(data.spreadsheet_id);
-        setUrl(`https://docs.google.com/spreadsheets/d/${data.spreadsheet_id}/edit`);
-        setSheetName(data.sheet_name);
-      }
-    });
-  }, [userId]);
-
-  async function save() {
-    const id = url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1] ?? url.trim();
-    if (!id) { toast.error("Sheet link দিন"); return; }
-    const { error } = await supabase.from("settings").upsert({ user_id: userId, spreadsheet_id: id, sheet_name: sheetName || "Sheet1", updated_at: new Date().toISOString() });
-    if (error) { toast.error(error.message); return; }
-    setSaved(id);
-    toast.success("Sheet সেভ হয়েছে");
-    onSaved();
-  }
-
-  return (
-    <div className="rounded-2xl border bg-card p-6 shadow-card">
-      <h3 className="text-lg font-bold">Google Sheet</h3>
-      <p className="mt-1 text-sm text-muted-foreground">সব পোস্ট, ক্যাপশন ও সময় এই Sheet এ জমা হবে।</p>
-      <div className="mt-4 space-y-2">
-        <Input placeholder="https://docs.google.com/spreadsheets/d/..." value={url} onChange={(e) => setUrl(e.target.value)} />
-        <Input placeholder="Tab name (Sheet1)" value={sheetName} onChange={(e) => setSheetName(e.target.value)} />
-        <Button className="w-full" variant="secondary" onClick={save}>Save</Button>
-        {saved && (
-          <a className="block text-center text-sm text-primary underline-offset-4 hover:underline" href={`https://docs.google.com/spreadsheets/d/${saved}/edit`} target="_blank" rel="noreferrer">
-            Sheet খুলুন ↗
-          </a>
-        )}
-      </div>
     </div>
   );
 }
