@@ -55,18 +55,24 @@ export type Database = {
       }
       settings: {
         Row: {
+          fb_page_id: string | null
+          fb_token: string | null
           sheet_name: string
           spreadsheet_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          fb_page_id?: string | null
+          fb_token?: string | null
           sheet_name?: string
           spreadsheet_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          fb_page_id?: string | null
+          fb_token?: string | null
           sheet_name?: string
           spreadsheet_id?: string | null
           updated_at?: string

@@ -128,9 +128,13 @@ export async function syncSheetForUser(db: DB, userId: string) {
 }
 
 /** Posts a photo to the Facebook Page. Returns the Facebook post id. */
-export async function publishToFacebook(imageUrl: string, caption: string) {
-  const pageId = process.env["FACEBOOK_PAGE_ID"];
-  const token = process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+export async function publishToFacebook(
+  imageUrl: string,
+  caption: string,
+  creds?: { pageId?: string | null; token?: string | null },
+) {
+  const pageId = creds?.pageId || process.env["FACEBOOK_PAGE_ID"];
+  const token = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
   if (!pageId || !token) throw new Error("Facebook Page যুক্ত করা হয়নি (Page ID / Token নেই)।");
   const body = new URLSearchParams({ url: imageUrl, message: caption, access_token: token });
   const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
@@ -149,10 +153,15 @@ export async function publishToFacebook(imageUrl: string, caption: string) {
 }
 
 /** Publish one post row that has already been claimed (status = posting). */
-export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string }) {
+export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string; user_id?: string }) {
   try {
+    let creds: { pageId?: string | null; token?: string | null } | undefined;
+    if (post.user_id) {
+      const { data: s } = await db.from("settings").select("fb_page_id, fb_token").eq("user_id", post.user_id).maybeSingle();
+      if (s?.fb_page_id && s?.fb_token) creds = { pageId: s.fb_page_id, token: s.fb_token };
+    }
     const url = await signedUrl(db, post.image_path, 3600);
-    const fbId = await publishToFacebook(url, post.caption);
+    const fbId = await publishToFacebook(url, post.caption, creds);
     await db
       .from("posts")
       .update({ status: "posted", fb_post_id: fbId, posted_at: new Date().toISOString(), error: null })

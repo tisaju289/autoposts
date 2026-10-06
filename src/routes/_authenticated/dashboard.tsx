@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { facebookStatus, generateCaption, publishNow, syncSheet } from "@/lib/posts.functions";
+import { facebookStatus, generateCaption, publishNow, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -233,13 +234,41 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
 
 function FacebookSettings() {
   const status = useServerFn(facebookStatus);
+  const save = useServerFn(saveFacebookCreds);
+  const qc = useQueryClient();
   const q = useQuery({ queryKey: ["fb-status"], queryFn: () => status() });
+  const [pageId, setPageId] = useState("");
+  const [token, setToken] = useState("");
+  const [showId, setShowId] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (q.data?.pageId) setPageId(q.data.pageId);
+  }, [q.data?.pageId]);
+
+  async function onSave() {
+    if (!pageId.trim() || !token.trim()) {
+      toast.error("Page ID আর Token দুটোই দিন");
+      return;
+    }
+    setSaving(true);
+    try {
+      await save({ data: { pageId: pageId.trim(), token: token.trim() } });
+      setToken("");
+      toast.success("Facebook Page সেভ হয়েছে");
+      qc.invalidateQueries({ queryKey: ["fb-status"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "সেভ হয়নি");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-card">
-      <h3 className="text-lg font-bold">Facebook Page</h3>
-      <p className="mt-1 text-sm text-muted-foreground">এই Page-এ আপনার পোস্টগুলো যাবে।</p>
-      <div className="mt-4 flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-lg font-bold">Facebook Page</h3>
         {q.isLoading ? (
           <Badge variant="secondary">চেক হচ্ছে…</Badge>
         ) : q.data?.connected ? (
@@ -248,8 +277,57 @@ function FacebookSettings() {
           <Badge variant="destructive">Connected নয়</Badge>
         )}
       </div>
+      <p className="mt-1 text-sm text-muted-foreground">এই Page-এ আপনার পোস্টগুলো যাবে।</p>
+
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Page ID</label>
+          <div className="relative mt-1">
+            <Input
+              type={showId ? "text" : "password"}
+              value={pageId}
+              onChange={(e) => setPageId(e.target.value)}
+              placeholder="যেমন: 123456789012345"
+              className="pr-10"
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => setShowId((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={showId ? "লুকান" : "দেখান"}
+            >
+              {showId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-muted-foreground">Page Access Token</label>
+          <div className="relative mt-1">
+            <Input
+              type={showToken ? "text" : "password"}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder={q.data?.hasToken ? "নতুন Token দিলে আগেরটা বদলে যাবে" : "EAA... দিয়ে শুরু হওয়া Token"}
+              className="pr-10"
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => setShowToken((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={showToken ? "লুকান" : "দেখান"}
+            >
+              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        <Button onClick={onSave} disabled={saving} className="w-full">
+          {saving ? "সেভ হচ্ছে…" : "সেভ করুন"}
+        </Button>
+      </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Page ID বা Token বদলাতে চাইলে চ্যাটে লিখুন — আমি নিরাপদ ফর্ম দেখিয়ে দেব।
+        Token নিরাপদে সেভ হয় — সেভের পর আর পুরোটা দেখা যায় না।
       </p>
     </div>
   );
