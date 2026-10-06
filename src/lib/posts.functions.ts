@@ -26,6 +26,12 @@ export const syncSheet = createServerFn({ method: "POST" })
     return syncSheetForUser(context.supabase, context.userId);
   });
 
+export const facebookStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => ({
+    connected: Boolean(process.env["FACEBOOK_PAGE_ID"] && process.env["FACEBOOK_PAGE_ACCESS_TOKEN"]),
+  }));
+
 export const publishNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ postId: z.string().uuid() }).parse(d))
