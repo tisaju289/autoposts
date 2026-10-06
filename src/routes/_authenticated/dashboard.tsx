@@ -391,6 +391,25 @@ function FacebookSettings() {
       <p className="mt-3 text-xs text-muted-foreground">
         Token নিরাপদে সেভ হয় — সেভের পর আর পুরোটা দেখা যায় না।
       </p>
+      <div className="mt-4 rounded-xl border p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold">Instagram</span>
+          {q.isLoading ? (
+            <Badge variant="secondary">চেক হচ্ছে…</Badge>
+          ) : q.data?.instagram?.connected ? (
+            <Badge className="bg-green-600 text-white hover:bg-green-600">
+              ✓ Connected{q.data.instagram.username ? ` (@${q.data.instagram.username})` : ""}
+            </Badge>
+          ) : (
+            <Badge variant="destructive">Connected নয়</Badge>
+          )}
+        </div>
+        {!q.isLoading && !q.data?.instagram?.connected && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Instagram অ্যাকাউন্টকে Professional করে Page-এর সাথে জুড়ুন, তারপর instagram_basic ও instagram_content_publish permission সহ নতুন Token সেভ করুন।
+          </p>
+        )}
+      </div>
     </div>
   );
 }
