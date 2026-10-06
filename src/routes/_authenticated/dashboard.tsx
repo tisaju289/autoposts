@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { generateCaption, publishNow, syncSheet } from "@/lib/posts.functions";
+import { facebookStatus, generateCaption, publishNow, syncSheet } from "@/lib/posts.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -109,7 +109,10 @@ function Dashboard() {
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
-          <SheetSettings userId={user.id} onSaved={syncQuiet} />
+          <div className="space-y-6">
+            <FacebookSettings />
+            <SheetSettings userId={user.id} onSaved={syncQuiet} />
+          </div>
         </div>
 
         <section>
@@ -224,6 +227,30 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
       <Button className="mt-6" size="lg" disabled={!!progress} onClick={() => input.current?.click()}>
         {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : "ছবি বাছাই করুন"}
       </Button>
+    </div>
+  );
+}
+
+function FacebookSettings() {
+  const status = useServerFn(facebookStatus);
+  const q = useQuery({ queryKey: ["fb-status"], queryFn: () => status() });
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h3 className="text-lg font-bold">Facebook Page</h3>
+      <p className="mt-1 text-sm text-muted-foreground">এই Page-এ আপনার পোস্টগুলো যাবে।</p>
+      <div className="mt-4 flex items-center gap-2">
+        {q.isLoading ? (
+          <Badge variant="secondary">চেক হচ্ছে…</Badge>
+        ) : q.data?.connected ? (
+          <Badge className="bg-green-600 text-white hover:bg-green-600">✓ Connected</Badge>
+        ) : (
+          <Badge variant="destructive">Connected নয়</Badge>
+        )}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Page ID বা Token বদলাতে চাইলে চ্যাটে লিখুন — আমি নিরাপদ ফর্ম দেখিয়ে দেব।
+      </p>
     </div>
   );
 }
