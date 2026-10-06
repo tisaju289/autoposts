@@ -14,13 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      posts: {
+        Row: {
+          caption: string
+          created_at: string
+          error: string | null
+          fb_post_id: string | null
+          id: string
+          image_path: string
+          posted_at: string | null
+          scheduled_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string
+          created_at?: string
+          error?: string | null
+          fb_post_id?: string | null
+          id?: string
+          image_path: string
+          posted_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          error?: string | null
+          fb_post_id?: string | null
+          id?: string
+          image_path?: string
+          posted_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          sheet_name: string
+          spreadsheet_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          sheet_name?: string
+          spreadsheet_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          sheet_name?: string
+          spreadsheet_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      verify_cron_token: { Args: { _token: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
