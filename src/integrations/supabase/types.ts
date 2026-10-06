@@ -21,6 +21,8 @@ export type Database = {
           error: string | null
           fb_post_id: string | null
           id: string
+          ig_error: string | null
+          ig_post_id: string | null
           image_path: string
           posted_at: string | null
           scheduled_at: string | null
@@ -33,6 +35,8 @@ export type Database = {
           error?: string | null
           fb_post_id?: string | null
           id?: string
+          ig_error?: string | null
+          ig_post_id?: string | null
           image_path: string
           posted_at?: string | null
           scheduled_at?: string | null
@@ -45,6 +49,8 @@ export type Database = {
           error?: string | null
           fb_post_id?: string | null
           id?: string
+          ig_error?: string | null
+          ig_post_id?: string | null
           image_path?: string
           posted_at?: string | null
           scheduled_at?: string | null
@@ -58,6 +64,7 @@ export type Database = {
           drive_folder_id: string | null
           fb_page_id: string | null
           fb_token: string | null
+          ig_user_id: string | null
           sheet_name: string
           spreadsheet_id: string | null
           updated_at: string
@@ -67,6 +74,7 @@ export type Database = {
           drive_folder_id?: string | null
           fb_page_id?: string | null
           fb_token?: string | null
+          ig_user_id?: string | null
           sheet_name?: string
           spreadsheet_id?: string | null
           updated_at?: string
@@ -76,6 +84,7 @@ export type Database = {
           drive_folder_id?: string | null
           fb_page_id?: string | null
           fb_token?: string | null
+          ig_user_id?: string | null
           sheet_name?: string
           spreadsheet_id?: string | null
           updated_at?: string
