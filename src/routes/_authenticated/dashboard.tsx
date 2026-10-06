@@ -116,6 +116,7 @@ function Dashboard() {
           <div className="space-y-6">
             <FacebookSettings />
             <SheetSettings userId={user.id} onSaved={syncQuiet} />
+            <DriveSettings userId={user.id} />
           </div>
         </div>
 
