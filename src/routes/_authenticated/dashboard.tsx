@@ -118,12 +118,12 @@ function Dashboard() {
 
   return (
     <div className="flex min-h-screen w-full">
-      <SidebarContent email={user.email ?? undefined} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="sticky top-0 hidden h-screen shrink-0 lg:flex lg:w-64" />
+      <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="sticky top-0 hidden h-screen shrink-0 lg:flex lg:w-64" />
 
       {menuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setMenuOpen(false)} />
-          <SidebarContent email={user.email ?? undefined} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw]" onClose={() => setMenuOpen(false)} />
+          <SidebarContent email={user.email} counts={navCounts} active={active} onNav={go} onSignOut={signOut} className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw]" onClose={() => setMenuOpen(false)} />
         </div>
       )}
 
@@ -221,7 +221,7 @@ function SidebarContent({
   className = "",
   onClose,
 }: {
-  email?: string;
+  email?: string | undefined;
   counts: { draft: number; scheduled: number; posted: number; failed: number };
   active: string;
   onNav: (k: string) => void;
