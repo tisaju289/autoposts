@@ -208,7 +208,7 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
       className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-card p-10 text-center shadow-card transition-colors ${drag ? "border-primary bg-primary/5" : ""}`}
     >
       <h2 className="text-3xl font-extrabold">ডিজাইন আপলোড করুন</h2>
-      <p className="mt-2 max-w-md text-muted-foreground">একসাথে অনেকগুলো ছবি টেনে আনুন। প্রতিটির জন্য AI বাংলা ক্যাপশন লিখে দেবে।</p>
+      <p className="mt-2 max-w-md text-muted-foreground">একসাথে অনেকগুলো ছবি টেনে আনুন। প্রতিটির জন্য AI বাংলা ক্যাপশন লিখে দেবে। ছবির কোয়ালিটি অপরিবর্তিত থাকে (সর্বোচ্চ 20MB)।</p>
       <input ref={input} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && handle(e.target.files)} />
       <Button className="mt-6" size="lg" disabled={!!progress} onClick={() => input.current?.click()}>
         {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : "ছবি বাছাই করুন"}
