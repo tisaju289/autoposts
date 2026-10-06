@@ -181,7 +181,7 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
       const f = await compressImage(orig);
       const path = `${userId}/${crypto.randomUUID()}.jpg`;
       const up = await supabase.storage.from("post-images").upload(path, f, { contentType: "image/jpeg" });
-      if (up.error) { toast.error(`${f.name}: ${up.error.message}`); continue; }
+      if (up.error) { toast.error(`if (up.error) { toast.error(`${orig.name}: ${up.error.message}`); continue; } ${up.error.message}`); continue; }
       const { data, error } = await supabase.from("posts").insert({ user_id: userId, image_path: path }).select("id").single();
       if (error) { toast.error(error.message); continue; }
       ids.push(data.id);
