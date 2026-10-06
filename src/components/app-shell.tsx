@@ -165,7 +165,7 @@ function SidebarContent({
           }
           const l = linkFor(it.k);
           return (
-            <Link key={it.k} to={l.to} hash={l.hash} onClick={onClose} className={cls}>
+            <Link key={it.k} {...(l.hash ? { hash: l.hash } : {})} to={l.to} onClick={onClose} className={cls}>
               {inner}
             </Link>
           );
