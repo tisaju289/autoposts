@@ -34,7 +34,7 @@ export function AppShell({
       const c: Record<string, number> = {};
       (data ?? []).forEach((p: { status: string }) => (c[p.status] = (c[p.status] ?? 0) + 1));
       return {
-        draft: c.draft ?? 0,
+        draft: c["draft"] ?? 0,
         scheduled: (c["scheduled"] ?? 0) + (c["posting"] ?? 0),
         posted: c["posted"] ?? 0,
         failed: c["failed"] ?? 0,
