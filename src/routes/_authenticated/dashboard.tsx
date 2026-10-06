@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { facebookStatus, generateCaption, publishNow, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
+import { facebookStatus, generateCaption, importDriveLinks, publishNow, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,7 +109,10 @@ function Dashboard() {
 
       <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
+          <div className="space-y-6">
+            <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
+            <DriveImport onDone={async () => { refresh(); await syncQuiet(); }} />
+          </div>
           <div className="space-y-6">
             <FacebookSettings />
             <SheetSettings userId={user.id} onSaved={syncQuiet} />
@@ -212,6 +215,73 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
       <input ref={input} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && handle(e.target.files)} />
       <Button className="mt-6" size="lg" disabled={!!progress} onClick={() => input.current?.click()}>
         {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : "ছবি বাছাই করুন"}
+      </Button>
+    </div>
+  );
+}
+
+function DriveImport({ onDone }: { onDone: () => void }) {
+  const imp = useServerFn(importDriveLinks);
+  const gen = useServerFn(generateCaption);
+  const [links, setLinks] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  async function run() {
+    if (!links.trim()) { toast.error("Drive লিংক পেস্ট করুন"); return; }
+    setBusy(true);
+    try {
+      const r = await imp({ data: { links } });
+      r.errors.forEach((e) => toast.error(e));
+      if (!r.created.length) { toast.error("কোনো ছবি আনা যায়নি — ফাইলগুলো কি Drive-এ আছে?"); return; }
+      toast.success(`${r.created.length} টি ছবি Drive থেকে এসেছে — ক্যাপশন লেখা হচ্ছে…`);
+      setLinks("");
+      onDone();
+      // Generate captions two at a time, like the uploader.
+      const queue = [...r.created];
+      let done = 0;
+      let stop = false;
+      setProgress({ done: 0, total: queue.length });
+      const worker = async () => {
+        while (queue.length && !stop) {
+          const id = queue.shift()!;
+          try {
+            await gen({ data: { postId: id } });
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "Caption failed";
+            toast.error(msg);
+            if (/ক্রেডিট|credit/i.test(msg)) stop = true;
+          }
+          done++;
+          setProgress({ done, total: r.created.length });
+        }
+      };
+      await Promise.all([worker(), worker()]);
+      setProgress(null);
+      toast.success("ক্যাপশন তৈরি — রিভিউ করে সময় সেট করুন।");
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Drive থেকে আনা যায়নি");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h3 className="text-lg font-bold">Google Drive থেকে আনুন</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Drive-এ ছবি আপলোড করে প্রতিটি ফাইলের শেয়ার লিংক এখানে পেস্ট করুন — প্রতি লাইনে একটি। ছবিগুলো নিজে থেকেই এসে পোস্ট তৈরি হবে (সর্বোচ্চ ৫০টি, 20MB পর্যন্ত)।
+      </p>
+      <Textarea
+        className="mt-3"
+        rows={4}
+        placeholder={"https://drive.google.com/file/d/.../view\nhttps://drive.google.com/file/d/.../view"}
+        value={links}
+        onChange={(e) => setLinks(e.target.value)}
+      />
+      <Button className="mt-3 w-full" variant="secondary" disabled={busy} onClick={run}>
+        {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : busy ? "Drive থেকে আনা হচ্ছে…" : "Drive থেকে আনুন"}
       </Button>
     </div>
   );
