@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -46,6 +46,7 @@ function toLocalInput(iso: string | null) {
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
+  const router = useRouter();
   const qc = useQueryClient();
   const sync = useServerFn(syncSheet);
   const [tab, setTab] = useState("draft");
