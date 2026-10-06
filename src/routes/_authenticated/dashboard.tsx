@@ -568,16 +568,18 @@ function PostCard({ post, img, onChange }: { post: Post; img?: string | undefine
         ) : (
           <>
             <Input type="datetime-local" value={when} disabled={locked} onChange={(e) => setWhen(e.target.value)} />
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-auto space-y-2">
               {post.status === "scheduled" ? (
-                <Button size="sm" variant="outline" disabled={!!busy} onClick={unschedule}>Unschedule</Button>
+                <Button size="sm" variant="outline" className="w-full" disabled={!!busy} onClick={unschedule}>Unschedule</Button>
               ) : (
-                <Button size="sm" disabled={!!busy || locked} onClick={schedule}>{busy === "schedule" ? "…" : "Approve & Schedule"}</Button>
+                <Button size="sm" className="w-full" disabled={!!busy || locked} onClick={schedule}>{busy === "schedule" ? "…" : "Approve & Schedule"}</Button>
               )}
-              <Button size="sm" variant="secondary" disabled={!!busy || locked} onClick={saveDraft}>Save</Button>
-              <Button size="sm" variant="ghost" disabled={!!busy || locked} onClick={regen}>{busy === "regen" ? "লিখছে…" : "নতুন ক্যাপশন"}</Button>
-              <Button size="sm" variant="ghost" disabled={!!busy || locked} onClick={postNow}>{busy === "now" ? "পোস্ট হচ্ছে…" : "এখনই পোস্ট"}</Button>
-              <Button size="sm" variant="ghost" className="text-destructive" disabled={!!busy || locked} onClick={remove}>Delete</Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" variant="secondary" disabled={!!busy || locked} onClick={saveDraft}>Save</Button>
+                <Button size="sm" variant="secondary" disabled={!!busy || locked} onClick={postNow}>{busy === "now" ? "পোস্ট হচ্ছে…" : "এখনই পোস্ট"}</Button>
+                <Button size="sm" variant="ghost" disabled={!!busy || locked} onClick={regen}>{busy === "regen" ? "লিখছে…" : "নতুন ক্যাপশন"}</Button>
+                <Button size="sm" variant="ghost" className="text-destructive" disabled={!!busy || locked} onClick={remove}>Delete</Button>
+              </div>
             </div>
           </>
         )}
