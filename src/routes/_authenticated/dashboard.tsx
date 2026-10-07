@@ -182,16 +182,18 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
   const [drag, setDrag] = useState(false);
 
   async function handle(files: FileList | File[]) {
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const list = Array.from(files).filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
     if (!list.length) return;
     setProgress({ done: 0, total: list.length });
     const ids: string[] = [];
     for (const orig of list) {
-      if (orig.size > 20 * 1024 * 1024) {
-        toast.error(`${orig.name}: ফাইলটি 20MB-এর বেশি — আপলোড হয়নি`);
+      const isVid = orig.type.startsWith("video/");
+      if (orig.size > (isVid ? 500 : 20) * 1024 * 1024) {
+        toast.error(`${orig.name}: ফাইলটি ${isVid ? "500MB" : "20MB"}-এর বেশি — আপলোড হয়নি`);
         continue;
       }
-      const ext = orig.name.includes(".") ? orig.name.split(".").pop()!.toLowerCase() : "jpg";
+      let ext = orig.name.includes(".") ? orig.name.split(".").pop()!.toLowerCase() : (isVid ? "mp4" : "jpg");
+      if (isVid && !/^(mp4|mov|m4v|webm)$/.test(ext)) ext = "mp4";
       const path = `${userId}/${crypto.randomUUID()}.${ext}`;
       const up = await supabase.storage.from("post-images").upload(path, orig, { contentType: orig.type || "image/jpeg" });
       if (up.error) { toast.error(`${orig.name}: ${up.error.message}`); continue; }
@@ -232,10 +234,10 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
       className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-card p-10 text-center shadow-card transition-colors ${drag ? "border-primary bg-primary/5" : ""}`}
     >
       <h2 className="text-3xl font-extrabold">ডিজাইন আপলোড করুন</h2>
-      <p className="mt-2 max-w-md text-muted-foreground">একসাথে অনেকগুলো ছবি টেনে আনুন। প্রতিটির জন্য AI বাংলা ক্যাপশন লিখে দেবে। ছবির কোয়ালিটি অপরিবর্তিত থাকে (সর্বোচ্চ 20MB)।</p>
-      <input ref={input} type="file" accept="image/*" multiple hidden onChange={(e) => e.target.files && handle(e.target.files)} />
+      <p className="mt-2 max-w-md text-muted-foreground">একসাথে অনেকগুলো ছবি টেনে আনুন। প্রতিটির জন্য AI বাংলা ক্যাপশন লিখে দেবে। ভিডিও দিলে Facebook ভিডিও ও Instagram Reels হিসেবে যাবে। কোয়ালিটি অপরিবর্তিত থাকে (ছবি সর্বোচ্চ 20MB, ভিডিও 500MB)।</p>
+      <input ref={input} type="file" accept="image/*,video/mp4,video/quicktime,video/webm" multiple hidden onChange={(e) => e.target.files && handle(e.target.files)} />
       <Button className="mt-6" size="lg" disabled={!!progress} onClick={() => input.current?.click()}>
-        {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : "ছবি বাছাই করুন"}
+        {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : "ছবি / ভিডিও বাছাই করুন"}
       </Button>
     </div>
   );
@@ -383,7 +385,7 @@ function PostCard({ post, img, onChange }: { post: Post; img?: string | undefine
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border bg-card shadow-card">
       <div className="relative aspect-square bg-muted">
-        {img && <img src={img} alt="Post design" className="h-full w-full object-cover" loading="lazy" />}
+        {img && /\.(mp4|mov|m4v|webm)$/i.test(post.image_path) ? <video src={img} controls preload="metadata" className="h-full w-full bg-foreground object-contain" /> : img && <img src={img} alt="Post design" className="h-full w-full object-cover" loading="lazy" />}
         <Badge variant={badgeVariant} className="absolute left-3 top-3">{STATUS_LABEL[post.status] ?? post.status}</Badge>
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">

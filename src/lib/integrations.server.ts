@@ -11,7 +11,10 @@ export async function signedUrl(db: DB, path: string, seconds = 3600) {
   return data.signedUrl;
 }
 
-export async function generateBanglaCaption(imageUrl: string, hint?: string) {
+export const VIDEO_RE = /\.(mp4|mov|m4v|webm)$/i;
+export const isVideoPath = (p: string) => VIDEO_RE.test(p);
+
+export async function generateBanglaCaption(imageUrl: string | null, hint?: string) {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured");
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
@@ -27,7 +30,7 @@ export async function generateBanglaCaption(imageUrl: string, hint?: string) {
           role: "user",
           content: [
             { type: "input_text", text: hint ? `অতিরিক্ত নির্দেশনা: ${hint}` : "এই পোস্টের জন্য ক্যাপশন লেখো।" },
-            { type: "input_image", image_url: imageUrl },
+            ...(imageUrl ? [{ type: "input_image", image_url: imageUrl }] : [{ type: "input_text", text: "এটি একটি ভিডিও পোস্ট — ছবি নেই। পেজের জন্য একটি সাধারণ আকর্ষণীয় ভিডিও ক্যাপশন লেখো।" }]),
           ],
         },
       ],
@@ -194,12 +197,21 @@ async function resolvePageToken(rawToken: string, pageId: string) {
 export async function publishToFacebook(
   imageUrl: string,
   caption: string,
-  creds?: { pageId?: string | null; token?: string | null },
+  creds?: { pageId?: string | null; token?: string | null; video?: boolean },
 ) {
   const pageId = creds?.pageId || process.env["FACEBOOK_PAGE_ID"];
   const rawToken = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
   if (!pageId || !rawToken) throw new Error("Facebook Page যুক্ত করা হয়নি (Page ID / Token নেই)।");
   const token = await resolvePageToken(rawToken, pageId);
+  if (creds && (creds as { video?: boolean }).video) {
+    const vr = await fetch(`https://graph-video.facebook.com/v21.0/${pageId}/videos`, {
+      method: "POST",
+      body: new URLSearchParams({ file_url: imageUrl, description: caption, access_token: token }),
+    });
+    const vj = (await vr.json().catch(() => ({}))) as { id?: string; error?: { message?: string; error_user_msg?: string } };
+    if (!vr.ok || vj.error) throw new Error(`Facebook video [${vr.status}]: ${vj.error?.message ?? "unknown error"}${vj.error?.error_user_msg ? ` — ${vj.error.error_user_msg}` : ""}`);
+    return vj.id ?? "";
+  }
   // Upload the image bytes directly — more reliable than letting Facebook fetch a signed URL.
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) throw new Error(`ছবি পড়া যায়নি [${imgRes.status}]`);
@@ -233,6 +245,7 @@ export async function publishToInstagram(
   imageUrl: string,
   caption: string,
   knownIgId?: string | null,
+  video = false,
 ): Promise<{ igUserId: string; postId: string }> {
   const token = await resolvePageToken(rawToken, pageId);
   let igId = knownIgId ?? "";
@@ -254,7 +267,7 @@ export async function publishToInstagram(
   const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
     method: "POST",
     body: new URLSearchParams({
-      image_url: imageUrl,
+      ...(video ? { media_type: "REELS", video_url: imageUrl } : { image_url: imageUrl }),
       caption: caption.slice(0, 2200),
       access_token: token,
     }),
@@ -265,8 +278,8 @@ export async function publishToInstagram(
   }
   const containerId = cJson.id!;
   let finished = false;
-  for (let i = 0; i < 10; i++) {
-    await new Promise((r) => setTimeout(r, 1500));
+  for (let i = 0; i < (video ? 60 : 10); i++) {
+    await new Promise((r) => setTimeout(r, video ? 4000 : 1500));
     const sRes = await fetch(
       `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${encodeURIComponent(token)}`,
     );
@@ -310,13 +323,14 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
     const pageId = creds?.pageId || process.env["FACEBOOK_PAGE_ID"];
     const rawToken = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
     const url = await signedUrl(db, post.image_path, 3600);
-    const fbId = await publishToFacebook(url, post.caption, creds);
+    const video = isVideoPath(post.image_path);
+    const fbId = await publishToFacebook(url, post.caption, { ...(creds ?? {}), video });
     // Facebook succeeded — try Instagram too; its failure does not fail the post.
     let igId: string | null = null;
     let igErr: string | null = null;
     if (pageId && rawToken) {
       try {
-        const ig = await publishToInstagram(pageId, rawToken, url, post.caption, creds?.igUserId ?? null);
+        const ig = await publishToInstagram(pageId, rawToken, url, post.caption, creds?.igUserId ?? null, video);
         igId = ig.postId;
         if (ig.igUserId && post.user_id && ig.igUserId !== creds?.igUserId) {
           await db.from("settings").upsert({

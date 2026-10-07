@@ -6,14 +6,14 @@ export const generateCaption = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ postId: z.string().uuid(), hint: z.string().max(500).optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { generateBanglaCaption, signedUrl } = await import("./integrations.server");
+    const { generateBanglaCaption, signedUrl, isVideoPath } = await import("./integrations.server");
     const { data: post, error } = await context.supabase
       .from("posts")
       .select("id, image_path")
       .eq("id", data.postId)
       .single();
     if (error || !post) throw new Error("Post not found");
-    const url = await signedUrl(context.supabase, post.image_path, 600);
+    const url = isVideoPath(post.image_path) ? null : await signedUrl(context.supabase, post.image_path, 600);
     const caption = await generateBanglaCaption(url, data.hint);
     await context.supabase.from("posts").update({ caption }).eq("id", post.id);
     return { caption };
