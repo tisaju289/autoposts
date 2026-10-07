@@ -389,7 +389,7 @@ function PostCard({ post, img, onChange }: { post: Post; img?: string | undefine
         <Badge variant={badgeVariant} className="absolute left-3 top-3">{STATUS_LABEL[post.status] ?? post.status}</Badge>
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">
-        <Textarea rows={6} value={caption} disabled={locked} onChange={(e) => setCaption(e.target.value)} placeholder={busy === "regen" ? "ক্যাপশন লেখা হচ্ছে…" : "ক্যাপশন তৈরি হচ্ছে…"} />
+        <Textarea rows={8} value={caption} disabled={locked} onChange={(e) => setCaption(e.target.value)} placeholder={busy === "regen" ? "ক্যাপশন লেখা হচ্ছে…" : "ক্যাপশন তৈরি হচ্ছে…"} />
         {post.error && <p className="text-xs text-destructive">{post.error}</p>}
         {post.status === "posted" ? (
           <p className="text-sm text-muted-foreground">
