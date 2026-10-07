@@ -339,14 +339,14 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
   );
 }
 
-function PostCard({ post, img, defaultDate, onChange }: { post: Post; img?: string | undefined; defaultDate: string; onChange: () => void }) {
+function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string | undefined; defaultDt?: { d: string; t: string } | undefined; onChange: () => void }) {
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const [caption, setCaption] = useState(post.caption);
   const [dt, setDt] = useState(() => {
     const v = toLocalInput(post.scheduled_at);
     if (v) return { d: v.slice(0, 10), t: v.slice(11, 16) };
-    return { d: defaultDate || toLocalInput(new Date().toISOString()).slice(0, 10), t: "06:00" };
+    return defaultDt ?? { d: toLocalInput(new Date().toISOString()).slice(0, 10), t: "06:00" };
   });
   const when = dt.d && dt.t ? `${dt.d}T${dt.t}` : "";
   const [busy, setBusy] = useState<string | null>(null);
