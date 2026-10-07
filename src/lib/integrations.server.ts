@@ -136,7 +136,7 @@ export async function syncSheetForUser(db: DB, userId: string) {
     .order("scheduled_at", { ascending: true, nullsFirst: false });
   if (error) throw new Error(error.message);
 
-  const paths = (posts ?? []).map((p) => p.image_path);
+  const paths = (posts ?? []).map((p) => p.image_path).filter(Boolean);
   const links: Record<string, string> = {};
   if (paths.length) {
     const { data } = await db.storage.from(BUCKET).createSignedUrls(paths, 60 * 60 * 24 * 7);
