@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Calendar, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateCaption, importDriveLinks, publishNow, syncSheet } from "@/lib/posts.functions";
 import { AppShell } from "@/components/app-shell";
@@ -320,7 +321,11 @@ function PostCard({ post, img, onChange }: { post: Post; img?: string | undefine
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const [caption, setCaption] = useState(post.caption);
-  const [when, setWhen] = useState(toLocalInput(post.scheduled_at));
+  const [dt, setDt] = useState(() => {
+    const v = toLocalInput(post.scheduled_at);
+    return { d: v.slice(0, 10), t: v.slice(11, 16) };
+  });
+  const when = dt.d && dt.t ? `${dt.d}T${dt.t}` : "";
   const [busy, setBusy] = useState<string | null>(null);
   const locked = post.status === "posted" || post.status === "posting";
 
