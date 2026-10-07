@@ -84,6 +84,14 @@ function Dashboard() {
     }
   };
 
+  const lastScheduledDate = useMemo(() => {
+    const times = (posts.data?.list ?? [])
+      .map((p) => p.scheduled_at)
+      .filter((v): v is string => Boolean(v))
+      .sort();
+    return times.length ? toLocalInput(times[times.length - 1]).slice(0, 10) : "";
+  }, [posts.data]);
+
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
     posts.data?.list.forEach((p) => (c[p.status] = (c[p.status] ?? 0) + 1));
