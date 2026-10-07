@@ -309,6 +309,61 @@ export async function publishToInstagram(
   return { igUserId: igId, postId: pJson.id ?? "" };
 }
 
+/** Publishes a photo story to the Facebook Page (unpublished photo -> photo_stories). */
+async function publishFbStory(pageId: string, token: string, imageUrl: string) {
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) throw new Error(`স্টোরির ছবি পড়া যায়নি [${imgRes.status}]`);
+  const blob = await imgRes.blob();
+  const up = new FormData();
+  up.append("source", blob, "story.jpg");
+  up.append("published", "false");
+  up.append("access_token", token);
+  const upRes = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, { method: "POST", body: up });
+  const upJson = (await upRes.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+  if (!upRes.ok || upJson.error || !upJson.id) {
+    throw new Error(`Facebook Story [${upRes.status}]: ${upJson.error?.message ?? "ছবি আপলোড ব্যর্থ"}`);
+  }
+  const stRes = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photo_stories`, {
+    method: "POST",
+    body: new URLSearchParams({ photo_id: upJson.id, access_token: token }),
+  });
+  const stJson = (await stRes.json().catch(() => ({}))) as { success?: boolean; post_id?: string; error?: { message?: string } };
+  if (!stRes.ok || stJson.error) {
+    throw new Error(`Facebook Story [${stRes.status}]: ${stJson.error?.message ?? "unknown error"}`);
+  }
+  return stJson.post_id ?? "";
+}
+
+/** Publishes a photo story to the Instagram account (media_type STORIES). */
+async function publishIgStory(igId: string, token: string, imageUrl: string) {
+  const cRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media`, {
+    method: "POST",
+    body: new URLSearchParams({ media_type: "STORIES", image_url: imageUrl, access_token: token }),
+  });
+  const cJson = (await cRes.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+  if (!cRes.ok || cJson.error) throw new Error(`Instagram Story [${cRes.status}]: ${cJson.error?.message ?? "unknown error"}`);
+  const containerId = cJson.id!;
+  let finished = false;
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 1500));
+    const sRes = await fetch(
+      `https://graph.facebook.com/v21.0/${containerId}?fields=status_code&access_token=${encodeURIComponent(token)}`,
+    );
+    const sJson = (await sRes.json().catch(() => ({}))) as { status_code?: string; error?: { message?: string } };
+    if (sJson.error) throw new Error(`Instagram Story [${sRes.status}]: ${sJson.error.message}`);
+    if (sJson.status_code === "FINISHED") { finished = true; break; }
+    if (sJson.status_code === "ERROR" || sJson.status_code === "EXPIRED") throw new Error("Instagram Story: ছবি প্রসেস করা যায়নি।");
+  }
+  if (!finished) throw new Error("Instagram Story: ছবি প্রসেস হতে বেশি সময় নিচ্ছে।");
+  const pRes = await fetch(`https://graph.facebook.com/v21.0/${igId}/media_publish`, {
+    method: "POST",
+    body: new URLSearchParams({ creation_id: containerId, access_token: token }),
+  });
+  const pJson = (await pRes.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+  if (!pRes.ok || pJson.error) throw new Error(`Instagram Story [${pRes.status}]: ${pJson.error?.message ?? "unknown error"}`);
+  return pJson.id ?? "";
+}
+
 /** Publish one post row that has already been claimed (status = posting). */
 export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string; user_id?: string }) {
   try {
@@ -342,6 +397,32 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
         }
       } catch (e) {
         igErr = e instanceof Error ? e.message : String(e);
+      }
+      // Stories: photo posts also go to the Facebook + Instagram story (best effort).
+      if (!video) {
+        try {
+          const storyToken = await resolvePageToken(rawToken, pageId);
+          await publishFbStory(pageId, storyToken, url);
+        } catch (e) {
+          igErr = [igErr, `FB Story: ${e instanceof Error ? e.message : String(e)}`].filter(Boolean).join(" | ");
+        }
+        try {
+          let igIdForStory = creds?.igUserId ?? "";
+          if (!igIdForStory) {
+            const storyToken = await resolvePageToken(rawToken, pageId);
+            const r = await fetch(
+              `https://graph.facebook.com/v21.0/${pageId}?fields=instagram_business_account{id}&access_token=${encodeURIComponent(storyToken)}`,
+            );
+            const j = (await r.json().catch(() => ({}))) as { instagram_business_account?: { id?: string } };
+            igIdForStory = j.instagram_business_account?.id ?? "";
+          }
+          if (igIdForStory) {
+            const storyToken = await resolvePageToken(rawToken, pageId);
+            await publishIgStory(igIdForStory, storyToken, url);
+          }
+        } catch (e) {
+          igErr = [igErr, `IG Story: ${e instanceof Error ? e.message : String(e)}`].filter(Boolean).join(" | ");
+        }
       }
     }
     await db
