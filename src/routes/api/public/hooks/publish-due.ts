@@ -32,6 +32,7 @@ export const Route = createFileRoute("/api/public/hooks/publish-due")({
         const users = new Set<string>();
         let posted = 0;
         let failed = 0;
+        let cleaned = 0;
         for (const { id } of due ?? []) {
           const { data: claimed } = await supabaseAdmin
             .from("posts")
