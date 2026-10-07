@@ -84,12 +84,26 @@ function Dashboard() {
     }
   };
 
-  const lastScheduledDate = useMemo(() => {
-    const times = (posts.data?.list ?? [])
-      .map((p) => p.scheduled_at)
-      .filter((v): v is string => Boolean(v))
-      .sort();
-    return times.length ? toLocalInput(times[times.length - 1] ?? null).slice(0, 10) : "";
+  // Default schedule for new drafts: day after the last scheduled post, starting 06:00, +2h per post.
+  const defaultSlots = useMemo(() => {
+    const list = posts.data?.list ?? [];
+    const times = list.map((p) => p.scheduled_at).filter((v): v is string => Boolean(v)).sort();
+    const base = new Date();
+    if (times.length) {
+      const last = toLocalInput(times[times.length - 1] ?? null).slice(0, 10);
+      base.setTime(new Date(`${last}T00:00:00`).getTime() + 86400000);
+    }
+    const date = toLocalInput(base.toISOString()).slice(0, 10);
+    const map: Record<string, { d: string; t: string }> = {};
+    let i = 0;
+    for (const p of list) {
+      if (p.status === "draft" && !p.scheduled_at) {
+        const mins = 6 * 60 + i * 120;
+        map[p.id] = { d: date, t: `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}` };
+        i++;
+      }
+    }
+    return map;
   }, [posts.data]);
 
   const counts = useMemo(() => {
@@ -172,7 +186,7 @@ function Dashboard() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {shown.map((p) => (
-                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} defaultDate={lastScheduledDate} onChange={async () => { refresh(); await syncQuiet(); }} />
+                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} defaultDt={defaultSlots[p.id]} onChange={async () => { refresh(); await syncQuiet(); }} />
               ))}
             </div>
           )}
@@ -325,14 +339,14 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
   );
 }
 
-function PostCard({ post, img, defaultDate, onChange }: { post: Post; img?: string | undefined; defaultDate: string; onChange: () => void }) {
+function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string | undefined; defaultDt?: { d: string; t: string } | undefined; onChange: () => void }) {
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const [caption, setCaption] = useState(post.caption);
   const [dt, setDt] = useState(() => {
     const v = toLocalInput(post.scheduled_at);
     if (v) return { d: v.slice(0, 10), t: v.slice(11, 16) };
-    return { d: defaultDate || toLocalInput(new Date().toISOString()).slice(0, 10), t: "06:00" };
+    return defaultDt ?? { d: toLocalInput(new Date().toISOString()).slice(0, 10), t: "06:00" };
   });
   const when = dt.d && dt.t ? `${dt.d}T${dt.t}` : "";
   const [busy, setBusy] = useState<string | null>(null);
