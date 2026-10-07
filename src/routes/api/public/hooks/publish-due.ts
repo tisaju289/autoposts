@@ -54,7 +54,11 @@ export const Route = createFileRoute("/api/public/hooks/publish-due")({
           }
         }
         // Free storage: delete images of posts published more than 12 hours ago.
-        ...
+        const { data: old } = await supabaseAdmin
+          .from("posts")
+          .select("id, image_path")
+          .eq("status", "posted")
+          .neq("image_path", "")
           .lt("posted_at", new Date(Date.now() - 12 * 3600_000).toISOString())
           .limit(50);
         if (old && old.length) {
