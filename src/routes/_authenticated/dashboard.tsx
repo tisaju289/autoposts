@@ -84,12 +84,26 @@ function Dashboard() {
     }
   };
 
-  const lastScheduledDate = useMemo(() => {
-    const times = (posts.data?.list ?? [])
-      .map((p) => p.scheduled_at)
-      .filter((v): v is string => Boolean(v))
-      .sort();
-    return times.length ? toLocalInput(times[times.length - 1] ?? null).slice(0, 10) : "";
+  // Default schedule for new drafts: day after the last scheduled post, starting 06:00, +2h per post.
+  const defaultSlots = useMemo(() => {
+    const list = posts.data?.list ?? [];
+    const times = list.map((p) => p.scheduled_at).filter((v): v is string => Boolean(v)).sort();
+    const base = new Date();
+    if (times.length) {
+      const last = toLocalInput(times[times.length - 1] ?? null).slice(0, 10);
+      base.setTime(new Date(`${last}T00:00:00`).getTime() + 86400000);
+    }
+    const date = toLocalInput(base.toISOString()).slice(0, 10);
+    const map: Record<string, { d: string; t: string }> = {};
+    let i = 0;
+    for (const p of list) {
+      if (p.status === "draft" && !p.scheduled_at) {
+        const mins = 6 * 60 + i * 120;
+        map[p.id] = { d: date, t: `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}` };
+        i++;
+      }
+    }
+    return map;
   }, [posts.data]);
 
   const counts = useMemo(() => {
