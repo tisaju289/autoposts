@@ -62,10 +62,11 @@ function Dashboard() {
       if (error) throw error;
       const list = data ?? [];
       const urls: Record<string, string> = {};
-      if (list.length) {
+      const paths = list.map((p) => p.image_path).filter(Boolean);
+      if (paths.length) {
         const { data: s } = await supabase.storage
           .from("post-images")
-          .createSignedUrls(list.map((p) => p.image_path), 3600);
+          .createSignedUrls(paths, 3600);
         s?.forEach((x) => x.path && x.signedUrl && (urls[x.path] = x.signedUrl));
       }
       return { list, urls };
