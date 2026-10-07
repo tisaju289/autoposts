@@ -164,7 +164,7 @@ function Dashboard() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {shown.map((p) => (
-                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} onChange={async () => { refresh(); await syncQuiet(); }} />
+                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} defaultDate={lastScheduledDate} onChange={async () => { refresh(); await syncQuiet(); }} />
               ))}
             </div>
           )}
@@ -317,13 +317,14 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
   );
 }
 
-function PostCard({ post, img, onChange }: { post: Post; img?: string | undefined; onChange: () => void }) {
+function PostCard({ post, img, defaultDate, onChange }: { post: Post; img?: string | undefined; defaultDate: string; onChange: () => void }) {
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const [caption, setCaption] = useState(post.caption);
   const [dt, setDt] = useState(() => {
     const v = toLocalInput(post.scheduled_at);
-    return { d: v.slice(0, 10), t: v.slice(11, 16) };
+    if (v) return { d: v.slice(0, 10), t: v.slice(11, 16) };
+    return { d: defaultDate || toLocalInput(new Date().toISOString()).slice(0, 10), t: "06:00" };
   });
   const when = dt.d && dt.t ? `${dt.d}T${dt.t}` : "";
   const [busy, setBusy] = useState<string | null>(null);
