@@ -219,6 +219,7 @@ export async function publishToFacebook(
   const body = new FormData();
   body.append("source", blob, "image.jpg");
   body.append("message", caption);
+  body.append("published", "true");
   body.append("access_token", token);
   const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
     method: "POST",
