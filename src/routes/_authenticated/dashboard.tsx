@@ -89,7 +89,7 @@ function Dashboard() {
       .map((p) => p.scheduled_at)
       .filter((v): v is string => Boolean(v))
       .sort();
-    return times.length ? toLocalInput(times[times.length - 1]).slice(0, 10) : "";
+    return times.length ? toLocalInput(times[times.length - 1] ?? null).slice(0, 10) : "";
   }, [posts.data]);
 
   const counts = useMemo(() => {
