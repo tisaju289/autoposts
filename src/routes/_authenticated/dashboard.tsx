@@ -405,7 +405,22 @@ function PostCard({ post, img, onChange }: { post: Post; img?: string | undefine
           </p>
         ) : (
           <>
-            <Input type="datetime-local" value={when} disabled={locked} onChange={(e) => setWhen(e.target.value)} />
+            <div className="space-y-2 rounded-xl border bg-muted/40 p-3">
+              <label className="flex items-center gap-1.5 px-0.5 text-[13px] font-semibold text-foreground">
+                <Calendar className="h-4 w-4 text-primary" />
+                পোস্টের তারিখ ও সময়
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70" />
+                  <Input type="date" className="pl-9" value={dt.d} disabled={locked} onChange={(e) => setDt((v) => ({ ...v, d: e.target.value }))} />
+                </div>
+                <div className="relative">
+                  <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70" />
+                  <Input type="time" className="pl-9" value={dt.t} disabled={locked} onChange={(e) => setDt((v) => ({ ...v, t: e.target.value }))} />
+                </div>
+              </div>
+            </div>
             <div className="mt-auto space-y-2">
               {post.status === "scheduled" ? (
                 <Button size="sm" variant="outline" className="w-full" disabled={!!busy} onClick={unschedule}>Unschedule</Button>
