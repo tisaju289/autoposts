@@ -398,6 +398,32 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
       } catch (e) {
         igErr = e instanceof Error ? e.message : String(e);
       }
+      // Stories: photo posts also go to the Facebook + Instagram story (best effort).
+      if (!video) {
+        try {
+          const storyToken = await resolvePageToken(rawToken, pageId);
+          await publishFbStory(pageId, storyToken, url);
+        } catch (e) {
+          igErr = [igErr, `FB Story: ${e instanceof Error ? e.message : String(e)}`].filter(Boolean).join(" | ");
+        }
+        try {
+          let igIdForStory = creds?.igUserId ?? "";
+          if (!igIdForStory) {
+            const storyToken = await resolvePageToken(rawToken, pageId);
+            const r = await fetch(
+              `https://graph.facebook.com/v21.0/${pageId}?fields=instagram_business_account{id}&access_token=${encodeURIComponent(storyToken)}`,
+            );
+            const j = (await r.json().catch(() => ({}))) as { instagram_business_account?: { id?: string } };
+            igIdForStory = j.instagram_business_account?.id ?? "";
+          }
+          if (igIdForStory) {
+            const storyToken = await resolvePageToken(rawToken, pageId);
+            await publishIgStory(igIdForStory, storyToken, url);
+          }
+        } catch (e) {
+          igErr = [igErr, `IG Story: ${e instanceof Error ? e.message : String(e)}`].filter(Boolean).join(" | ");
+        }
+      }
     }
     await db
       .from("posts")
