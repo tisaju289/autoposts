@@ -186,7 +186,7 @@ function Dashboard() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {shown.map((p) => (
-                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} defaultDate={lastScheduledDate} onChange={async () => { refresh(); await syncQuiet(); }} />
+                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} defaultDt={defaultSlots[p.id]} onChange={async () => { refresh(); await syncQuiet(); }} />
               ))}
             </div>
           )}
