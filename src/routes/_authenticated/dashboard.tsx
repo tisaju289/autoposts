@@ -220,7 +220,7 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
         setProgress({ done, total: ids.length });
       }
     };
-    await Promise.all([worker(), worker()]);
+    await Promise.all(Array.from({ length: 5 }, worker));
     setProgress(null);
     toast.success(`${ids.length} টি পোস্ট তৈরি — ক্যাপশন রিভিউ করে সময় সেট করুন।`);
     onDone();
@@ -285,7 +285,7 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
           setProgress({ done, total: r.created.length });
         }
       };
-      await Promise.all([worker(), worker()]);
+      await Promise.all(Array.from({ length: 5 }, worker));
       setProgress(null);
       toast.success("ক্যাপশন তৈরি — রিভিউ করে সময় সেট করুন।");
       onDone();

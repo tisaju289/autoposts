@@ -30,7 +30,7 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
           role: "user",
           content: [
             { type: "input_text", text: hint ? `অতিরিক্ত নির্দেশনা: ${hint}` : "এই পোস্টের জন্য ক্যাপশন লেখো।" },
-            ...(imageUrl ? [{ type: "input_image", image_url: imageUrl }] : [{ type: "input_text", text: "এটি একটি ভিডিও পোস্ট — ছবি নেই। পেজের জন্য একটি সাধারণ আকর্ষণীয় ভিডিও ক্যাপশন লেখো।" }]),
+            ...(imageUrl ? [{ type: "input_image", image_url: imageUrl, detail: "low" }] : [{ type: "input_text", text: "এটি একটি ভিডিও পোস্ট — ছবি নেই। পেজের জন্য একটি সাধারণ আকর্ষণীয় ভিডিও ক্যাপশন লেখো।" }]),
           ],
         },
       ],
