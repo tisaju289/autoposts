@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const generateCaption = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ postId: z.string().uuid(), hint: z.string().max(500).optional() }).parse(d))
+  .inputValidator((d) => z.object({ postId: z.string().uuid(), hint: z.string().max(500).optional(), tone: z.string().max(30).optional() }).parse(d))
   .handler(async ({ data, context }) => {
     const { generateBanglaCaption, signedUrl, isVideoPath } = await import("./integrations.server");
     const { data: post, error } = await context.supabase
@@ -14,7 +14,8 @@ export const generateCaption = createServerFn({ method: "POST" })
       .single();
     if (error || !post) throw new Error("Post not found");
     const url = isVideoPath(post.image_path) ? null : await signedUrl(context.supabase, post.image_path, 600);
-    const caption = await generateBanglaCaption(url, data.hint);
+    const { data: st } = await context.supabase.from("settings").select("caption_tone, brand_voice").eq("user_id", context.userId).maybeSingle();
+    const caption = await generateBanglaCaption(url, data.hint, { tone: data.tone ?? st?.caption_tone, brandVoice: st?.brand_voice });
     await context.supabase.from("posts").update({ caption }).eq("id", post.id);
     return { caption };
   });
@@ -133,4 +134,53 @@ export const publishNow = createServerFn({ method: "POST" })
     const r = await publishClaimedPost(context.supabase, claimed);
     if (!r.ok) throw new Error(r.error);
     return { ok: true };
+  });
+
+export const generateCaptionVariations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ postId: z.string().uuid(), tone: z.string().max(30).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { generateBanglaCaption, signedUrl, isVideoPath } = await import("./integrations.server");
+    const { data: post } = await context.supabase.from("posts").select("id, image_path").eq("id", data.postId).single();
+    if (!post) throw new Error("Post not found");
+    const { data: st } = await context.supabase.from("settings").select("caption_tone, brand_voice").eq("user_id", context.userId).maybeSingle();
+    const url = isVideoPath(post.image_path) ? null : await signedUrl(context.supabase, post.image_path, 600);
+    const style = { tone: data.tone ?? st?.caption_tone, brandVoice: st?.brand_voice };
+    const angles = ["প্রথম আইডিয়া: সরাসরি ও ছোট।", "দ্বিতীয় আইডিয়া: আবেগ/অনুভূতি দিয়ে শুরু করো, আগেরটির থেকে সম্পূর্ণ ভিন্ন।", "তৃতীয় আইডিয়া: একটি প্রশ্ন বা হুক দিয়ে শুরু করো, সম্পূর্ণ ভিন্ন কোণ থেকে।"];
+    const captions = await Promise.all(angles.map((a) => generateBanglaCaption(url, a, style)));
+    return { captions };
+  });
+
+export const saveCaptionStyle = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ tone: z.string().max(30), brandVoice: z.string().max(1500) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("settings").upsert({ user_id: context.userId, caption_tone: data.tone, brand_voice: data.brandVoice, updated_at: new Date().toISOString() });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const postAnalytics = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { fetchFbPostStats, resolvePageToken } = await import("./integrations.server");
+    const [y, m] = data.month.split("-").map(Number) as [number, number];
+    const from = new Date(Date.UTC(y, m - 1, 1) - 6 * 3600e3).toISOString();
+    const to = new Date(Date.UTC(y, m, 1) - 6 * 3600e3).toISOString();
+    const { data: posts } = await context.supabase.from("posts").select("id, caption, posted_at, fb_post_id, ig_post_id").eq("status", "posted").gte("posted_at", from).lt("posted_at", to).order("posted_at", { ascending: true });
+    const { data: s } = await context.supabase.from("settings").select("fb_page_id, fb_token").eq("user_id", context.userId).maybeSingle();
+    const pageId = s?.fb_page_id || process.env["FACEBOOK_PAGE_ID"];
+    const raw = s?.fb_token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+    const token = pageId && raw ? await resolvePageToken(raw, pageId) : null;
+    const list = posts ?? [];
+    const rows: { id: string; caption: string; posted_at: string | null; fb_post_id: string | null; instagram: boolean; likes: number; comments: number; shares: number; reach: number; error: string | null }[] = [];
+    for (let i = 0; i < list.length; i += 10) {
+      const chunk = await Promise.all(list.slice(i, i + 10).map(async (p) => {
+        const st = p.fb_post_id && token ? await fetchFbPostStats(p.fb_post_id, token) : { likes: 0, comments: 0, shares: 0, reach: 0, error: token ? null : "Facebook যুক্ত নেই" };
+        return { id: p.id, caption: p.caption, posted_at: p.posted_at, fb_post_id: p.fb_post_id, instagram: Boolean(p.ig_post_id), ...st };
+      }));
+      rows.push(...chunk);
+    }
+    return { rows };
   });

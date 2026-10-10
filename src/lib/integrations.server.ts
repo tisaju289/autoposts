@@ -14,7 +14,16 @@ export async function signedUrl(db: DB, path: string, seconds = 3600) {
 export const VIDEO_RE = /\.(mp4|mov|m4v|webm)$/i;
 export const isVideoPath = (p: string) => VIDEO_RE.test(p);
 
-export async function generateBanglaCaption(imageUrl: string | null, hint?: string) {
+export const TONES: Record<string, string> = {
+  engaging: "আকর্ষণীয় ও প্রাণবন্ত",
+  professional: "প্রফেশনাল ও মার্জিত",
+  casual: "ক্যাজুয়াল ও বন্ধুসুলভ",
+  offer: "অফার/ডিসকাউন্ট কেন্দ্রিক — জরুরি ভাব, কল-টু-অ্যাকশন সহ",
+  story: "গল্প বলার ধরনে (Storytelling)",
+};
+
+export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null; brandVoice?: string | null }) {
+  const extra = `\nটোন: ${TONES[style?.tone ?? ""] ?? TONES.engaging}।${style?.brandVoice?.trim() ? `\nপেজের ব্র্যান্ড নির্দেশনা (অবশ্যই মানবে): ${style.brandVoice.trim()}` : ""}`;
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured");
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
@@ -24,7 +33,7 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
       model: "openai/gpt-6-astra",
       reasoning: { effort: "low" },
       instructions:
-        "তুমি একজন দক্ষ বাংলা সোশ্যাল মিডিয়া কপিরাইটার। ছবির ডিজাইন দেখে একটি আকর্ষণীয় ফেসবুক পেজ পোস্ট ক্যাপশন লেখো — মূল লেখা শুধু বাংলায়। গঠন (আবশ্যক): প্রথমে ২-৪ লাইনের মূল লেখা, তারপর একটি ফাঁকা লাইন, তারপর ৩-৫টি হ্যাশট্যাগ একসাথে আলাদা লাইনে। মূল লেখার মধ্যে হলে দুই-তিন ছোট অনুচ্ছেদ বা লাইন ভাগ করবে — প্রতিটি ভাব আলাদা লাইনে, ফাঁকা লাইন দিয়ে আলাদা করবে যাতে ক্যাপশন পরিষ্কার ও গোছানো দেখায়। প্রাসঙ্গিক ইমোজি ব্যবহার করবে। গুরুত্বপূর্ণ নিয়ম: সব সংখ্যা/নম্বর সবসময় ইংরেজি অঙ্কে লিখবে (যেমন ১২৫০ নয়, 1250) এবং সব হ্যাশট্যাগ সবসময় ইংরেজিতে হবে (যেমন #Fashion #NewArrival), বাংলা হ্যাশট্যাগ নয়। ছবিতে লেখা থাকলে তার মর্ম ধরে লেখো। শুধু ক্যাপশনটি দাও, অন্য কিছু নয়।",
+        "তুমি একজন দক্ষ বাংলা সোশ্যাল মিডিয়া কপিরাইটার। ছবির ডিজাইন দেখে একটি আকর্ষণীয় ফেসবুক পেজ পোস্ট ক্যাপশন লেখো — মূল লেখা শুধু বাংলায়। গঠন (আবশ্যক): প্রথমে ২-৪ লাইনের মূল লেখা, তারপর একটি ফাঁকা লাইন, তারপর ৩-৫টি হ্যাশট্যাগ একসাথে আলাদা লাইনে। মূল লেখার মধ্যে হলে দুই-তিন ছোট অনুচ্ছেদ বা লাইন ভাগ করবে — প্রতিটি ভাব আলাদা লাইনে, ফাঁকা লাইন দিয়ে আলাদা করবে যাতে ক্যাপশন পরিষ্কার ও গোছানো দেখায়। প্রাসঙ্গিক ইমোজি ব্যবহার করবে। গুরুত্বপূর্ণ নিয়ম: সব সংখ্যা/নম্বর সবসময় ইংরেজি অঙ্কে লিখবে (যেমন ১২৫০ নয়, 1250) এবং সব হ্যাশট্যাগ সবসময় ইংরেজিতে হবে (যেমন #Fashion #NewArrival), বাংলা হ্যাশট্যাগ নয়। ছবিতে লেখা থাকলে তার মর্ম ধরে লেখো। শুধু ক্যাপশনটি দাও, অন্য কিছু নয়।" + extra,
       input: [
         {
           role: "user",
@@ -443,3 +452,27 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
     return { ok: false as const, error: msg };
   }
 }
+
+/** Likes, comments and reach for a Facebook post (best effort). */
+export async function fetchFbPostStats(postId: string, token: string) {
+  const r = await fetch(
+    `https://graph.facebook.com/v21.0/${postId}?fields=reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares,insights.metric(post_impressions_unique)&access_token=${encodeURIComponent(token)}`,
+  );
+  const j = (await r.json().catch(() => ({}))) as {
+    reactions?: { summary?: { total_count?: number } };
+    comments?: { summary?: { total_count?: number } };
+    shares?: { count?: number };
+    insights?: { data?: { values?: { value?: number }[] }[] };
+    error?: { message?: string };
+  };
+  if (j.error) return { likes: 0, comments: 0, shares: 0, reach: 0, error: j.error.message ?? "error" };
+  return {
+    likes: j.reactions?.summary?.total_count ?? 0,
+    comments: j.comments?.summary?.total_count ?? 0,
+    shares: j.shares?.count ?? 0,
+    reach: j.insights?.data?.[0]?.values?.[0]?.value ?? 0,
+    error: null as string | null,
+  };
+}
+
+export { resolvePageToken };
