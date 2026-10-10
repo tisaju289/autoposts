@@ -2,7 +2,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarClock, ImagePlus, LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
+import { BarChart3, CalendarClock, ImagePlus, LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 type NavCounts = { draft: number; scheduled: number; posted: number; failed: number };
@@ -112,6 +112,7 @@ function SidebarContent({
     { k: "top", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
     { k: "add-design", label: "ডিজাইন যোগ করুন", icon: ImagePlus },
     { k: "posts", label: "রিভিউ ও শিডিউল", icon: CalendarClock, badge: counts.draft },
+    { k: "analytics", label: "অ্যানালিটিক্স", icon: BarChart3 },
     { k: "settings", label: "সেটিংস", icon: Settings },
   ];
   const stats = [
@@ -120,8 +121,8 @@ function SidebarContent({
     { label: "Failed", n: counts.failed, danger: counts.failed > 0 },
   ];
 
-  const linkFor = (k: string): { to: "/dashboard" | "/settings"; hash?: string } =>
-    k === "settings" ? { to: "/settings" } : k === "add-design" ? { to: "/dashboard", hash: "add-design" } : k === "posts" ? { to: "/dashboard", hash: "posts" } : { to: "/dashboard" };
+  const linkFor = (k: string): { to: "/dashboard" | "/settings" | "/analytics"; hash?: string } =>
+    k === "analytics" ? { to: "/analytics" } : k === "settings" ? { to: "/settings" } : k === "add-design" ? { to: "/dashboard", hash: "add-design" } : k === "posts" ? { to: "/dashboard", hash: "posts" } : { to: "/dashboard" };
 
   return (
     <aside className={`z-50 flex-col border-r bg-card ${className}`}>
