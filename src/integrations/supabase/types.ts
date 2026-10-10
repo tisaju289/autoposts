@@ -20,11 +20,15 @@ export type Database = {
           created_at: string
           error: string | null
           fb_post_id: string | null
+          fb_reel_id: string | null
           id: string
           ig_error: string | null
           ig_post_id: string | null
+          ig_reel_id: string | null
           image_path: string
           posted_at: string | null
+          reel_error: string | null
+          reel_path: string | null
           scheduled_at: string | null
           status: string
           user_id: string
@@ -34,11 +38,15 @@ export type Database = {
           created_at?: string
           error?: string | null
           fb_post_id?: string | null
+          fb_reel_id?: string | null
           id?: string
           ig_error?: string | null
           ig_post_id?: string | null
+          ig_reel_id?: string | null
           image_path: string
           posted_at?: string | null
+          reel_error?: string | null
+          reel_path?: string | null
           scheduled_at?: string | null
           status?: string
           user_id: string
@@ -48,11 +56,15 @@ export type Database = {
           created_at?: string
           error?: string | null
           fb_post_id?: string | null
+          fb_reel_id?: string | null
           id?: string
           ig_error?: string | null
           ig_post_id?: string | null
+          ig_reel_id?: string | null
           image_path?: string
           posted_at?: string | null
+          reel_error?: string | null
+          reel_path?: string | null
           scheduled_at?: string | null
           status?: string
           user_id?: string

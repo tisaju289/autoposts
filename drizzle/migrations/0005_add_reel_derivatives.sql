@@ -1,0 +1,2 @@
+ALTER TABLE public.posts ADD COLUMN reel_path text, ADD COLUMN fb_reel_id text, ADD COLUMN ig_reel_id text, ADD COLUMN reel_error text;
+COMMENT ON COLUMN public.posts.reel_path IS 'Owner-scoped MP4 derivative with default music; original image_path remains untouched.';
