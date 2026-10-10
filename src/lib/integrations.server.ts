@@ -22,8 +22,8 @@ export const TONES: Record<string, string> = {
   story: "গল্প বলার ধরনে (Storytelling)",
 };
 
-export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null; brandVoice?: string | null }) {
-  const extra = `\nটোন: ${TONES[style?.tone ?? ""] ?? TONES.engaging}।${style?.brandVoice?.trim() ? `\nপেজের ব্র্যান্ড নির্দেশনা (অবশ্যই মানবে): ${style.brandVoice.trim()}` : ""}`;
+export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null | undefined; brandVoice?: string | null | undefined }) {
+  const extra = `\nটোন: ${TONES[style?.tone ?? ""] ?? TONES["engaging"]}।${style?.brandVoice?.trim() ? `\nপেজের ব্র্যান্ড নির্দেশনা (অবশ্যই মানবে): ${style.brandVoice.trim()}` : ""}`;
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured");
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
