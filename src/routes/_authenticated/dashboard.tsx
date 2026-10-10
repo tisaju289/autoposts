@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Calendar, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateCaption, importDriveLinks, publishNow, syncSheet } from "@/lib/posts.functions";
+import { generateCaption, generateCaptionVariations, importDriveLinks, publishNow, syncSheet } from "@/lib/posts.functions";
+import { TONE_OPTIONS } from "@/lib/tones";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,8 +130,8 @@ function Dashboard() {
 
   const go = (k: string) => {
     setActive(k);
-    if (k === "settings") {
-      router.navigate({ to: "/settings" });
+    if (k === "settings" || k === "analytics") {
+      router.navigate({ to: k === "settings" ? "/settings" : "/analytics" });
       return;
     }
     if (k === "top") window.scrollTo({ top: 0, behavior: "smooth" });
@@ -342,6 +343,9 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
 function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string | undefined; defaultDt?: { d: string; t: string } | undefined; onChange: () => void }) {
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
+  const vary = useServerFn(generateCaptionVariations);
+  const [tone, setTone] = useState("");
+  const [ideas, setIdeas] = useState<string[] | null>(null);
   const [caption, setCaption] = useState(post.caption);
   const [dt, setDt] = useState(() => {
     const v = toLocalInput(post.scheduled_at);
@@ -387,8 +391,22 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
 
   const regen = () =>
     run("regen", async () => {
-      const r = await gen({ data: { postId: post.id } });
+      const r = await gen({ data: { postId: post.id, ...(tone ? { tone } : {}) } });
       setCaption(r.caption);
+      onChange();
+    });
+
+  const threeIdeas = () =>
+    run("ideas", async () => {
+      const r = await vary({ data: { postId: post.id, ...(tone ? { tone } : {}) } });
+      setIdeas(r.captions);
+    });
+
+  const pickIdea = (c: string) =>
+    run("pick", async () => {
+      setCaption(c);
+      setIdeas(null);
+      await supabase.from("posts").update({ caption: c }).eq("id", post.id);
       onChange();
     });
 
@@ -418,6 +436,25 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">
         <Textarea rows={8} value={caption} disabled={locked} onChange={(e) => setCaption(e.target.value)} placeholder={busy === "regen" ? "ক্যাপশন লেখা হচ্ছে…" : "ক্যাপশন তৈরি হচ্ছে…"} />
+        {!locked && (
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+            <select value={tone} onChange={(e) => setTone(e.target.value)} className="h-9 min-w-0 rounded-md border bg-background px-2 text-sm" aria-label="ক্যাপশনের টোন">
+              <option value="">টোন: সেটিংস অনুযায়ী</option>
+              {TONE_OPTIONS.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
+            </select>
+            <Button size="sm" variant="outline" disabled={!!busy} onClick={threeIdeas}>{busy === "ideas" ? "ভাবছে…" : "৩টি আইডিয়া"}</Button>
+          </div>
+        )}
+        {ideas && (
+          <div className="space-y-2 rounded-xl border bg-muted/40 p-2">
+            <div className="flex items-center justify-between px-1 text-xs font-semibold">পছন্দেরটি বেছে নিন <button className="text-muted-foreground" onClick={() => setIdeas(null)}>বন্ধ</button></div>
+            {ideas.map((c, i) => (
+              <button key={i} onClick={() => pickIdea(c)} className="block w-full whitespace-pre-line rounded-lg border bg-card p-2 text-left text-xs transition hover:border-primary">
+                <span className="mb-1 block font-bold text-primary">আইডিয়া {i + 1}</span>{c}
+              </button>
+            ))}
+          </div>
+        )}
         {post.error && <p className="text-xs text-destructive">{post.error}</p>}
         {post.status === "posted" ? (
           <p className="text-sm text-muted-foreground">

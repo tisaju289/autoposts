@@ -4,11 +4,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { facebookStatus, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
+import { facebookStatus, saveCaptionStyle, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { TONE_OPTIONS } from "@/lib/tones";
 import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -46,6 +48,7 @@ function SettingsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <FacebookSettings />
         <SheetSettings userId={user.id} onSaved={syncQuiet} />
+        <CaptionStyle userId={user.id} />
       </div>
     </AppShell>
   );
@@ -210,6 +213,35 @@ function SheetSettings({ userId, onSaved }: { userId: string; onSaved: () => voi
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+function CaptionStyle({ userId }: { userId: string }) {
+  const save = useServerFn(saveCaptionStyle);
+  const [tone, setTone] = useState("engaging");
+  const [voice, setVoice] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    supabase.from("settings").select("caption_tone, brand_voice").eq("user_id", userId).maybeSingle().then(({ data }) => {
+      if (data) { setTone(data.caption_tone); setVoice(data.brand_voice); }
+    });
+  }, [userId]);
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card lg:col-span-2">
+      <h3 className="text-lg font-bold">AI ক্যাপশন স্টাইল</h3>
+      <p className="mt-1 text-sm text-muted-foreground">সব নতুন ক্যাপশন এই টোন ও নির্দেশনা মেনে লেখা হবে।</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {TONE_OPTIONS.map((o) => (
+          <button key={o.v} onClick={() => setTone(o.v)} className={`rounded-full border px-3 py-1.5 text-sm transition ${tone === o.v ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary"}`}>{o.l}</button>
+        ))}
+      </div>
+      <label className="mt-4 block text-sm font-semibold">ব্র্যান্ড ভয়েস / নিজস্ব নির্দেশনা</label>
+      <Textarea className="mt-2" rows={4} maxLength={1500} value={voice} onChange={(e) => setVoice(e.target.value)} placeholder={"যেমন: সবসময় দাম ও ফোন নম্বর 01XXXXXXXXX ক্যাপশনের শেষে থাকবে। ক্রেতাকে 'আপনি' বলে সম্বোধন করবে।"} />
+      <Button className="mt-3" disabled={busy} onClick={async () => {
+        setBusy(true);
+        try { await save({ data: { tone, brandVoice: voice } }); toast.success("ক্যাপশন স্টাইল সেভ হয়েছে"); } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); } finally { setBusy(false); }
+      }}>{busy ? "সেভ হচ্ছে…" : "সেভ করুন"}</Button>
     </div>
   );
 }

@@ -29,6 +29,13 @@
       "when": 1791296701695,
       "tag": "0003_add_instagram_publishing_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791605831260,
+      "tag": "0004_caption_style",
+      "breakpoints": true
     }
   ]
 }

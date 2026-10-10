@@ -61,6 +61,8 @@ export type Database = {
       }
       settings: {
         Row: {
+          brand_voice: string
+          caption_tone: string
           drive_folder_id: string | null
           fb_page_id: string | null
           fb_token: string | null
@@ -71,6 +73,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          brand_voice?: string
+          caption_tone?: string
           drive_folder_id?: string | null
           fb_page_id?: string | null
           fb_token?: string | null
@@ -81,6 +85,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          brand_voice?: string
+          caption_tone?: string
           drive_folder_id?: string | null
           fb_page_id?: string | null
           fb_token?: string | null
