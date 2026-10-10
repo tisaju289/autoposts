@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Calendar, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateCaption, generateCaptionVariations, importDriveLinks, publishNow, syncSheet } from "@/lib/posts.functions";
+import { TONE_OPTIONS } from "@/lib/tones";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,14 +38,6 @@ const STATUS_LABEL: Record<string, string> = {
   posted: "Posted",
   failed: "Failed",
 };
-
-export const TONE_OPTIONS = [
-  { v: "engaging", l: "আকর্ষণীয়" },
-  { v: "professional", l: "প্রফেশনাল" },
-  { v: "casual", l: "ক্যাজুয়াল" },
-  { v: "offer", l: "অফার / ডিসকাউন্ট" },
-  { v: "story", l: "গল্প বলা (Storytelling)" },
-];
 
 function toLocalInput(iso: string | null) {
   if (!iso) return "";

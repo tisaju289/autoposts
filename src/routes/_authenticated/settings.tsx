@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { TONE_OPTIONS } from "./dashboard";
+import { TONE_OPTIONS } from "@/lib/tones";
 import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
