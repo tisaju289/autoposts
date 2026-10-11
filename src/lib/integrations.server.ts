@@ -26,10 +26,7 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
   const extra = `\nটোন: ${TONES[style?.tone ?? ""] ?? TONES["engaging"]}।${style?.brandVoice?.trim() ? `\nপেজের ব্র্যান্ড নির্দেশনা (অবশ্যই মানবে): ${style.brandVoice.trim()}` : ""}`;
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured");
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const payload = {
       model: "openai/gpt-6-astra",
       reasoning: { effort: "low" },
       instructions:
@@ -43,10 +40,18 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
           ],
         },
       ],
-    }),
+  };
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const body = await res.text();
+    if ((res.status === 402 || res.status === 403) && process.env["GEMINI_API_KEY"]) {
+      const texts = payload.input[0]!.content.filter((c) => c.type === "input_text").map((c) => ("text" in c ? c.text : ""));
+      return geminiCaption(payload.instructions, texts.join("\n"), imageUrl);
+    }
     if (res.status === 429) throw new Error("AI এখন ব্যস্ত, একটু পরে আবার চেষ্টা করুন।");
     if (res.status === 402) throw new Error("AI ক্রেডিট শেষ। Workspace এ ক্রেডিট যোগ করুন।");
     throw new Error(`AI error [${res.status}]: ${body.slice(0, 300)}`);
