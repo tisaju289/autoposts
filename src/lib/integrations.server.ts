@@ -34,7 +34,7 @@ async function geminiCaption(system: string, userText: string, imageUrl: string 
       parts.push({ inline_data: { mime_type: img.headers.get("content-type") || "image/jpeg", data: btoa(bin) } });
     }
   }
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
     method: "POST",
     headers: { "x-goog-api-key": process.env["GEMINI_API_KEY"]!, "Content-Type": "application/json" },
     body: JSON.stringify({ system_instruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts }] }),
