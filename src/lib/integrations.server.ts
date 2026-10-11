@@ -22,6 +22,33 @@ export const TONES: Record<string, string> = {
   story: "গল্প বলার ধরনে (Storytelling)",
 };
 
+/** Fallback when Lovable AI credits run out: uses the user's own Gemini key. */
+async function geminiCaption(system: string, userText: string, imageUrl: string | null) {
+  const parts: Record<string, unknown>[] = [{ text: userText }];
+  if (imageUrl) {
+    const img = await fetch(imageUrl);
+    if (img.ok) {
+      const buf = new Uint8Array(await img.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+      parts.push({ inline_data: { mime_type: img.headers.get("content-type") || "image/jpeg", data: btoa(bin) } });
+    }
+  }
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+    method: "POST",
+    headers: { "x-goog-api-key": process.env["GEMINI_API_KEY"]!, "Content-Type": "application/json" },
+    body: JSON.stringify({ system_instruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts }] }),
+  });
+  if (!res.ok) {
+    if (res.status === 429) throw new Error("Gemini এখন ব্যস্ত/লিমিট শেষ, একটু পরে চেষ্টা করুন।");
+    throw new Error(`Gemini error [${res.status}]: ${(await res.text()).slice(0, 300)}`);
+  }
+  const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const text = (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+  if (!text) throw new Error("Gemini কোনো ক্যাপশন দেয়নি।");
+  return text;
+}
+
 export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null | undefined; brandVoice?: string | null | undefined }) {
   const extra = `\nটোন: ${TONES[style?.tone ?? ""] ?? TONES["engaging"]}।${style?.brandVoice?.trim() ? `\nপেজের ব্র্যান্ড নির্দেশনা (অবশ্যই মানবে): ${style.brandVoice.trim()}` : ""}`;
   const key = process.env["LOVABLE_API_KEY"];
