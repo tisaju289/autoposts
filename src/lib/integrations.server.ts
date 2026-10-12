@@ -89,7 +89,8 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
   });
   if (!res.ok) {
     const body = await res.text();
-    if ((res.status === 402 || res.status === 403) && process.env["GEMINI_API_KEY"]) {
+    // Built-in AI unavailable (credits, limits, busy, outage) → use the user's own Gemini key.
+    if ((res.status === 402 || res.status === 403 || res.status === 429 || res.status >= 500) && process.env["GEMINI_API_KEY"]) {
       const texts = payload.input[0]!.content.filter((c) => c.type === "input_text").map((c) => ("text" in c ? c.text : ""));
       return geminiCaption(payload.instructions, texts.join("\n"), imageUrl);
     }
