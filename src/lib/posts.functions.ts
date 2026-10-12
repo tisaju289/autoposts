@@ -13,9 +13,10 @@ export const generateCaption = createServerFn({ method: "POST" })
       .eq("id", data.postId)
       .single();
     if (error || !post) throw new Error("Post not found");
-    const url = isVideoPath(post.image_path) ? null : await signedUrl(context.supabase, post.image_path, 600);
+    const vid = isVideoPath(post.image_path);
+    const url = await signedUrl(context.supabase, post.image_path, 1800);
     const { data: st } = await context.supabase.from("settings").select("caption_tone, brand_voice").eq("user_id", context.userId).maybeSingle();
-    const caption = await generateBanglaCaption(url, data.hint, { tone: data.tone ?? st?.caption_tone, brandVoice: st?.brand_voice });
+    const caption = await generateBanglaCaption(vid ? null : url, data.hint, { tone: data.tone ?? st?.caption_tone, brandVoice: st?.brand_voice }, vid ? url : null);
     await context.supabase.from("posts").update({ caption }).eq("id", post.id);
     return { caption };
   });
@@ -144,10 +145,11 @@ export const generateCaptionVariations = createServerFn({ method: "POST" })
     const { data: post } = await context.supabase.from("posts").select("id, image_path").eq("id", data.postId).single();
     if (!post) throw new Error("Post not found");
     const { data: st } = await context.supabase.from("settings").select("caption_tone, brand_voice").eq("user_id", context.userId).maybeSingle();
-    const url = isVideoPath(post.image_path) ? null : await signedUrl(context.supabase, post.image_path, 600);
+    const vid = isVideoPath(post.image_path);
+    const url = await signedUrl(context.supabase, post.image_path, 1800);
     const style = { tone: data.tone ?? st?.caption_tone, brandVoice: st?.brand_voice };
     const angles = ["প্রথম আইডিয়া: সরাসরি ও ছোট।", "দ্বিতীয় আইডিয়া: আবেগ/অনুভূতি দিয়ে শুরু করো, আগেরটির থেকে সম্পূর্ণ ভিন্ন।", "তৃতীয় আইডিয়া: একটি প্রশ্ন বা হুক দিয়ে শুরু করো, সম্পূর্ণ ভিন্ন কোণ থেকে।"];
-    const captions = await Promise.all(angles.map((a) => generateBanglaCaption(url, a, style)));
+    const captions = await Promise.all(angles.map((a) => generateBanglaCaption(vid ? null : url, a, style, vid ? url : null)));
     return { captions };
   });
 

@@ -118,8 +118,13 @@ async function geminiGenerate(system: string, parts: Record<string, unknown>[]) 
   throw new Error(`Gemini এখন ব্যস্ত, একটু পরে আবার চেষ্টা করুন। (${lastErr})`);
 }
 
-export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null | undefined; brandVoice?: string | null | undefined }) {
+export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null | undefined; brandVoice?: string | null | undefined }, videoUrl?: string | null) {
   const extra = `\nটোন: ${TONES[style?.tone ?? ""] ?? TONES["engaging"]}।${style?.brandVoice?.trim() ? `\nপেজের ব্র্যান্ড নির্দেশনা (অবশ্যই মানবে): ${style.brandVoice.trim()}` : ""}`;
+  if (videoUrl && process.env["GEMINI_API_KEY"]) {
+    const sys =
+      "তুমি একজন দক্ষ বাংলা সোশ্যাল মিডিয়া কপিরাইটার। ভিডিওটি মনোযোগ দিয়ে দেখো ও শোনো — কী দেখানো হচ্ছে (পণ্য, মানুষ, জায়গা, ঘটনা), স্ক্রিনে লেখা ও কথা — তারপর ঠিক সেই কন্টেন্টের সাথে মিল রেখে একটি আকর্ষণীয় ফেসবুক পোস্ট ক্যাপশন লেখো, মূল লেখা শুধু বাংলায়। গঠন: ২-৪ লাইনের মূল লেখা, ছোট অনুচ্ছেদে ফাঁকা লাইন দিয়ে ভাগ করা, প্রাসঙ্গিক ইমোজি; তারপর একটি ফাঁকা লাইন, তারপর ৩-৫টি ইংরেজি হ্যাশট্যাগ আলাদা লাইনে। সব সংখ্যা ইংরেজি অঙ্কে (1250)। ভিডিওতে যা নেই তা বানিয়ে লিখবে না। শুধু ক্যাপশনটি দাও।" + extra;
+    return geminiCaption(sys, hint ? `অতিরিক্ত নির্দেশনা: ${hint}` : "এই ভিডিও পোস্টের জন্য ক্যাপশন লেখো।", null, videoUrl);
+  }
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured");
   const payload = {
