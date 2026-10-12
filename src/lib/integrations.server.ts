@@ -22,10 +22,57 @@ export const TONES: Record<string, string> = {
   story: "গল্প বলার ধরনে (Storytelling)",
 };
 
-/** Fallback when Lovable AI credits run out: uses the user's own Gemini key. */
-async function geminiCaption(system: string, userText: string, imageUrl: string | null) {
+const GEM = "https://generativelanguage.googleapis.com";
+
+/** Uploads a video to Gemini's Files API (streamed, not buffered) and waits until it is ready. */
+async function geminiUploadVideo(videoUrl: string) {
+  const key = process.env["GEMINI_API_KEY"]!;
+  const src = await fetch(videoUrl);
+  if (!src.ok || !src.body) throw new Error(`ভিডিও পড়া যায়নি [${src.status}]`);
+  const size = src.headers.get("content-length");
+  const mime = (src.headers.get("content-type") || "video/mp4").split(";")[0]!;
+  if (!size) throw new Error("ভিডিওর সাইজ পাওয়া যায়নি");
+  const start = await fetch(`${GEM}/upload/v1beta/files`, {
+    method: "POST",
+    headers: {
+      "x-goog-api-key": key,
+      "X-Goog-Upload-Protocol": "resumable",
+      "X-Goog-Upload-Command": "start",
+      "X-Goog-Upload-Header-Content-Length": size,
+      "X-Goog-Upload-Header-Content-Type": mime,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ file: { display_name: "post-video" } }),
+  });
+  const uploadUrl = start.headers.get("x-goog-upload-url");
+  if (!start.ok || !uploadUrl) throw new Error(`Gemini ভিডিও আপলোড শুরু হয়নি [${start.status}]: ${(await start.text()).slice(0, 200)}`);
+  const up = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { "Content-Length": size, "X-Goog-Upload-Offset": "0", "X-Goog-Upload-Command": "upload, finalize" },
+    body: src.body,
+    // @ts-expect-error duplex is required for streaming bodies
+    duplex: "half",
+  });
+  if (!up.ok) throw new Error(`Gemini ভিডিও আপলোড হয়নি [${up.status}]: ${(await up.text()).slice(0, 200)}`);
+  let file = ((await up.json()) as { file: { name: string; uri: string; state?: string; mimeType?: string } }).file;
+  for (let i = 0; i < 60 && file.state === "PROCESSING"; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const g = await fetch(`${GEM}/v1beta/${file.name}`, { headers: { "x-goog-api-key": key } });
+    if (g.ok) file = (await g.json()) as typeof file;
+  }
+  if (file.state && file.state !== "ACTIVE") throw new Error(`Gemini ভিডিও প্রসেস হয়নি (${file.state})`);
+  return { name: file.name, uri: file.uri, mime: file.mimeType || mime };
+}
+
+/** Uses the user's own Gemini key: fallback for images, primary path for videos (it can watch them). */
+async function geminiCaption(system: string, userText: string, imageUrl: string | null, videoUrl?: string | null) {
   const parts: Record<string, unknown>[] = [{ text: userText }];
-  if (imageUrl) {
+  let uploaded: { name: string } | null = null;
+  if (videoUrl) {
+    const v = await geminiUploadVideo(videoUrl);
+    uploaded = v;
+    parts.unshift({ file_data: { mime_type: v.mime, file_uri: v.uri } });
+  } else if (imageUrl) {
     const img = await fetch(imageUrl);
     if (img.ok) {
       const buf = new Uint8Array(await img.arrayBuffer());
@@ -34,6 +81,14 @@ async function geminiCaption(system: string, userText: string, imageUrl: string 
       parts.push({ inline_data: { mime_type: img.headers.get("content-type") || "image/jpeg", data: btoa(bin) } });
     }
   }
+  try {
+    return await geminiGenerate(system, parts);
+  } finally {
+    if (uploaded) fetch(`${GEM}/v1beta/${uploaded.name}`, { method: "DELETE", headers: { "x-goog-api-key": process.env["GEMINI_API_KEY"]! } }).catch(() => {});
+  }
+}
+
+async function geminiGenerate(system: string, parts: Record<string, unknown>[]) {
   const body = JSON.stringify({ system_instruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts }] });
   // Google often returns 503 "high demand" or retires model names; try several models in turn.
   const models = ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-flash-lite-latest"];
@@ -63,8 +118,13 @@ async function geminiCaption(system: string, userText: string, imageUrl: string 
   throw new Error(`Gemini এখন ব্যস্ত, একটু পরে আবার চেষ্টা করুন। (${lastErr})`);
 }
 
-export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null | undefined; brandVoice?: string | null | undefined }) {
+export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null | undefined; brandVoice?: string | null | undefined }, videoUrl?: string | null) {
   const extra = `\nটোন: ${TONES[style?.tone ?? ""] ?? TONES["engaging"]}।${style?.brandVoice?.trim() ? `\nপেজের ব্র্যান্ড নির্দেশনা (অবশ্যই মানবে): ${style.brandVoice.trim()}` : ""}`;
+  if (videoUrl && process.env["GEMINI_API_KEY"]) {
+    const sys =
+      "তুমি একজন দক্ষ বাংলা সোশ্যাল মিডিয়া কপিরাইটার। ভিডিওটি মনোযোগ দিয়ে দেখো ও শোনো — কী দেখানো হচ্ছে (পণ্য, মানুষ, জায়গা, ঘটনা), স্ক্রিনে লেখা ও কথা — তারপর ঠিক সেই কন্টেন্টের সাথে মিল রেখে একটি আকর্ষণীয় ফেসবুক পোস্ট ক্যাপশন লেখো, মূল লেখা শুধু বাংলায়। গঠন: ২-৪ লাইনের মূল লেখা, ছোট অনুচ্ছেদে ফাঁকা লাইন দিয়ে ভাগ করা, প্রাসঙ্গিক ইমোজি; তারপর একটি ফাঁকা লাইন, তারপর ৩-৫টি ইংরেজি হ্যাশট্যাগ আলাদা লাইনে। সব সংখ্যা ইংরেজি অঙ্কে (1250)। ভিডিওতে যা নেই তা বানিয়ে লিখবে না। শুধু ক্যাপশনটি দাও।" + extra;
+    return geminiCaption(sys, hint ? `অতিরিক্ত নির্দেশনা: ${hint}` : "এই ভিডিও পোস্টের জন্য ক্যাপশন লেখো।", null, videoUrl);
+  }
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("AI is not configured");
   const payload = {
