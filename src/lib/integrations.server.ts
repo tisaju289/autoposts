@@ -34,19 +34,33 @@ async function geminiCaption(system: string, userText: string, imageUrl: string 
       parts.push({ inline_data: { mime_type: img.headers.get("content-type") || "image/jpeg", data: btoa(bin) } });
     }
   }
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
-    method: "POST",
-    headers: { "x-goog-api-key": process.env["GEMINI_API_KEY"]!, "Content-Type": "application/json" },
-    body: JSON.stringify({ system_instruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts }] }),
-  });
-  if (!res.ok) {
-    if (res.status === 429) throw new Error("Gemini এখন ব্যস্ত/লিমিট শেষ, একটু পরে চেষ্টা করুন।");
-    throw new Error(`Gemini error [${res.status}]: ${(await res.text()).slice(0, 300)}`);
+  const body = JSON.stringify({ system_instruction: { parts: [{ text: system }] }, contents: [{ role: "user", parts }] });
+  // Google often returns 503 "high demand" or retires model names; try several models in turn.
+  const models = ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-flash-lite-latest"];
+  let lastErr = "";
+  for (let round = 0; round < 2; round++) {
+    for (const m of models) {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
+        method: "POST",
+        headers: { "x-goog-api-key": process.env["GEMINI_API_KEY"]!, "Content-Type": "application/json" },
+        body,
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
+        const text = (j.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("").trim();
+        if (text) return text;
+        lastErr = "Gemini কোনো ক্যাপশন দেয়নি।";
+        continue;
+      }
+      const t = (await res.text()).slice(0, 200);
+      if (res.status === 400 || res.status === 401 || (res.status === 403 && !/model/i.test(t))) {
+        throw new Error(`Gemini key সমস্যা [${res.status}]: ${t}`);
+      }
+      lastErr = `Gemini [${res.status}] ${m}`;
+    }
+    await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000));
   }
-  const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const text = (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
-  if (!text) throw new Error("Gemini কোনো ক্যাপশন দেয়নি।");
-  return text;
+  throw new Error(`Gemini এখন ব্যস্ত, একটু পরে আবার চেষ্টা করুন। (${lastErr})`);
 }
 
 export async function generateBanglaCaption(imageUrl: string | null, hint?: string, style?: { tone?: string | null | undefined; brandVoice?: string | null | undefined }) {
@@ -75,7 +89,8 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
   });
   if (!res.ok) {
     const body = await res.text();
-    if ((res.status === 402 || res.status === 403) && process.env["GEMINI_API_KEY"]) {
+    // Built-in AI unavailable (credits, limits, busy, outage) → use the user's own Gemini key.
+    if ((res.status === 402 || res.status === 403 || res.status === 429 || res.status >= 500) && process.env["GEMINI_API_KEY"]) {
       const texts = payload.input[0]!.content.filter((c) => c.type === "input_text").map((c) => ("text" in c ? c.text : ""));
       return geminiCaption(payload.instructions, texts.join("\n"), imageUrl);
     }
