@@ -481,10 +481,14 @@ async function publishIgStory(igId: string, token: string, imageUrl: string) {
 }
 
 /** Publish one post row that has already been claimed (status = posting). */
-export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string; user_id?: string }) {
+export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string; user_id?: string; page_ref?: string | null }) {
   try {
     let creds: { pageId?: string | null; token?: string | null; igUserId?: string | null } | undefined;
-    if (post.user_id) {
+    if (post.page_ref) {
+      const { data: p } = await db.from("fb_pages").select("page_id, token, ig_user_id").eq("id", post.page_ref).maybeSingle();
+      if (!p) throw new Error("নির্বাচিত পেজটি আর নেই — Settings দেখুন");
+      creds = { pageId: p.page_id, token: p.token, igUserId: p.ig_user_id };
+    } else if (post.user_id) {
       const { data: s } = await db
         .from("settings")
         .select("fb_page_id, fb_token, ig_user_id")

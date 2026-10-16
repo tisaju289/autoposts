@@ -125,7 +125,7 @@ export const publishNow = createServerFn({ method: "POST" })
       .update({ status: "posting" })
       .eq("id", data.postId)
       .in("status", ["draft", "scheduled", "failed"])
-      .select("id, image_path, caption, user_id")
+      .select("id, image_path, caption, user_id, page_ref")
       .maybeSingle();
     if (!claimed) throw new Error("এই পোস্টটি এখন পোস্ট করা যাবে না।");
     if (!claimed.caption.trim()) {
@@ -185,4 +185,31 @@ export const postAnalytics = createServerFn({ method: "POST" })
       rows.push(...chunk);
     }
     return { rows };
+  });
+
+export const listPages = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase.from("fb_pages").select("id, name, page_id, created_at").order("created_at");
+    return (data ?? []).map((p) => ({ id: p.id, name: p.name || p.page_id, pageId: p.page_id }));
+  });
+
+export const addPage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ name: z.string().trim().max(100), pageId: z.string().trim().min(1).max(100), token: z.string().trim().min(1).max(500) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("fb_pages").insert({ user_id: context.userId, name: data.name, page_id: data.pageId, token: data.token });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const removePage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("fb_pages").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
