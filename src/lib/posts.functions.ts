@@ -23,8 +23,12 @@ export const generateCaption = createServerFn({ method: "POST" })
 
 export const importDriveLinks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ links: z.string().min(1).max(20000) }).parse(d))
+  .inputValidator((d) => z.object({ links: z.string().min(1).max(20000), pageRef: z.string().uuid().nullable().optional() }).parse(d))
   .handler(async ({ data, context }) => {
+    if (data.pageRef) {
+      const { data: page, error } = await context.supabase.from("fb_pages").select("id").eq("id", data.pageRef).eq("user_id", context.userId).maybeSingle();
+      if (error || !page) throw new Error("পেজটি পাওয়া যায়নি। অন্য পেজ বাছুন।");
+    }
     const { downloadDriveImage, listDriveFolderImages } = await import("./integrations.server");
     const tokens = data.links.split(/[\s,]+/).filter(Boolean);
     const all: string[] = [];
@@ -44,11 +48,11 @@ export const importDriveLinks = createServerFn({ method: "POST" })
     for (const id of ids) {
       try {
         const img = await downloadDriveImage(id);
-        const ext = img.name.includes(".") ? img.name.split(".").pop()!.toLowerCase() : "jpg";
+        const ext = img.name.includes(".") ? (img.name.split(".").pop() ?? "jpg").toLowerCase() : "jpg";
         const path = `${context.userId}/${crypto.randomUUID()}.${ext}`;
         const up = await context.supabase.storage.from("post-images").upload(path, img.bytes, { contentType: img.contentType });
         if (up.error) throw new Error(up.error.message);
-        const { data: row, error } = await context.supabase.from("posts").insert({ user_id: context.userId, image_path: path }).select("id").single();
+        const { data: row, error } = await context.supabase.from("posts").insert({ user_id: context.userId, image_path: path, page_ref: data.pageRef ?? null }).select("id").single();
         if (error) throw new Error(error.message);
         created.push(row.id);
       } catch (e) {
@@ -190,7 +194,8 @@ export const postAnalytics = createServerFn({ method: "POST" })
 export const listPages = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase.from("fb_pages").select("id, name, page_id, created_at").order("created_at");
+    const { data, error } = await context.supabase.from("fb_pages").select("id, name, page_id, created_at").eq("user_id", context.userId).order("created_at");
+    if (error) throw new Error(error.message);
     return (data ?? []).map((p) => ({ id: p.id, name: p.name || p.page_id, pageId: p.page_id }));
   });
 
