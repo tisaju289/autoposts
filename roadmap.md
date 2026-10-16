@@ -1,3 +1,7 @@
+# Page-scoped dashboard
+- [ ] Add a dashboard page selector and isolate posts, counts, uploads, Drive imports, and schedule defaults.
+- [ ] Verify page switching and saving through the signed-in dashboard; run regression tests.
+
 # Reels with default music
 - [ ] Create reusable original background tracks.
 - [ ] Create private MP4 derivatives for uploaded and Drive-imported images; preserve originals.
