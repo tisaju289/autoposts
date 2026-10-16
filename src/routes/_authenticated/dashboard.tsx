@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
+import { defaultPageSlots, dhakaInput } from "@/lib/page-scope";
 import { Calendar, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateCaption, generateCaptionVariations, importDriveLinks, listPages, publishNow, syncSheet } from "@/lib/posts.functions";
@@ -18,6 +20,7 @@ import type { Database } from "@/integrations/supabase/types";
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  validateSearch: z.object({ page: z.string().uuid().optional() }),
   head: () => ({
     meta: [
       { title: "Dashboard — Auto Posts" },
@@ -39,26 +42,29 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "Failed",
 };
 
-function toLocalInput(iso: string | null) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
-}
-
 function Dashboard() {
   const { user } = Route.useRouteContext();
   const router = useRouter();
   const qc = useQueryClient();
   const sync = useServerFn(syncSheet);
+  const pagesFn = useServerFn(listPages);
+  const { page } = Route.useSearch();
+  const pageRef = page ?? null;
+  const pagesQ = useQuery({ queryKey: ["pages", user.id], queryFn: () => pagesFn() });
+  const pages = pagesQ.data ?? [];
+  const validPage = !page || pages.some((p) => p.id === page);
+  const scopeReady = pagesQ.isSuccess && validPage;
+  const pageName = pages.find((p) => p.id === page)?.name ?? "মূল পেজ";
+  const selectPage = (value: string) => router.navigate({ to: "/dashboard", search: value ? { page: value } : {} });
   const [tab, setTab] = useState("draft");
 
   const posts = useQuery({
-    queryKey: ["posts"],
+    queryKey: ["posts", user.id, pageRef],
+    enabled: scopeReady,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*")
+      const query = supabase.from("posts").select("*").eq("user_id", user.id);
+      const scoped = pageRef ? query.eq("page_ref", pageRef) : query.is("page_ref", null);
+      const { data, error } = await scoped
         .order("scheduled_at", { ascending: true, nullsFirst: true })
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -85,27 +91,7 @@ function Dashboard() {
     }
   };
 
-  // Default schedule for new drafts: day after the last scheduled post, starting 06:00, +2h per post.
-  const defaultSlots = useMemo(() => {
-    const list = posts.data?.list ?? [];
-    const times = list.map((p) => p.scheduled_at).filter((v): v is string => Boolean(v)).sort();
-    const base = new Date();
-    if (times.length) {
-      const last = toLocalInput(times[times.length - 1] ?? null).slice(0, 10);
-      base.setTime(new Date(`${last}T00:00:00`).getTime() + 86400000);
-    }
-    const date = toLocalInput(base.toISOString()).slice(0, 10);
-    const map: Record<string, { d: string; t: string }> = {};
-    let i = 0;
-    for (const p of list) {
-      if (p.status === "draft" && !p.scheduled_at) {
-        const mins = 6 * 60 + i * 120;
-        map[p.id] = { d: date, t: `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}` };
-        i++;
-      }
-    }
-    return map;
-  }, [posts.data]);
+  const defaultSlots = useMemo(() => defaultPageSlots(posts.data?.list ?? []), [posts.data]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -140,6 +126,19 @@ function Dashboard() {
 
   return (
     <AppShell email={user.email} userId={user.id} counts={navCounts} active={active} onNav={go}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+          <h1 className="text-xl font-bold">ড্যাশবোর্ড</h1>
+          <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto">
+            <label htmlFor="dashboard-page" className="shrink-0 text-sm font-medium">Facebook পেজ</label>
+            <select id="dashboard-page" aria-label="Facebook পেজ বাছাই করুন" value={page ?? ""} disabled={pagesQ.isPending} onChange={(e) => selectPage(e.target.value)} className="h-10 w-full min-w-0 rounded-md border bg-background px-3 text-sm sm:w-64">
+              <option value="">মূল পেজ</option>
+              {pages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {!validPage && <option value={page}>পেজটি আর নেই</option>}
+            </select>
+          </div>
+        </div>
+        {pagesQ.isError && <p role="alert" className="text-sm text-destructive">পেজের তালিকা আনা যায়নি। <Button variant="outline" size="sm" onClick={() => pagesQ.refetch()}>আবার চেষ্টা করুন</Button></p>}
+        {!validPage && <p role="alert" className="text-sm text-destructive">এই পেজটি সরানো হয়েছে। অন্য একটি পেজ বাছুন।</p>}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {stats.map((s) => (
             <button
@@ -156,14 +155,14 @@ function Dashboard() {
         <section id="add-design" className="scroll-mt-24 space-y-3">
           <h2 className="text-lg font-bold">১. ডিজাইন যোগ করুন</h2>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Uploader userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
-            <DriveImport userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
+            <Uploader key={`upload-${pageRef ?? "main"}`} disabled={!scopeReady} pageRef={pageRef} userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
+            <DriveImport key={`drive-${pageRef ?? "main"}`} disabled={!scopeReady} pageRef={pageRef} userId={user.id} onDone={async () => { refresh(); await syncQuiet(); }} />
           </div>
         </section>
 
         <section id="posts" className="scroll-mt-24 space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <h2 className="text-lg font-bold">২. রিভিউ ও শিডিউল</h2>
+            <h2 className="text-lg font-bold">২. রিভিউ ও শিডিউল <span className="text-sm font-normal text-muted-foreground">— {pageName}</span></h2>
             <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={async () => { await syncQuiet(); toast.success("Google Sheet আপডেট হয়েছে"); }}>
               Sync to Google Sheet
             </Button>
@@ -180,7 +179,9 @@ function Dashboard() {
             </Tabs>
           </div>
 
-          {posts.isLoading ? (
+          {posts.isError ? (
+            <p role="alert" className="text-destructive">পোস্ট আনা যায়নি। <Button variant="outline" size="sm" onClick={() => posts.refetch()}>আবার চেষ্টা করুন</Button></p>
+          ) : posts.isLoading || pagesQ.isPending ? (
             <p className="text-muted-foreground">লোড হচ্ছে…</p>
           ) : shown.length === 0 ? (
             <div className="rounded-2xl border border-dashed p-12 text-center text-muted-foreground">এখানে কোনো পোস্ট নেই।</div>
@@ -199,13 +200,14 @@ function Dashboard() {
 
 // Upload the original file untouched — no resizing or quality change (limit: 20MB).
 
-function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
+function Uploader({ userId, pageRef, disabled, onDone }: { userId: string; pageRef: string | null; disabled: boolean; onDone: () => void }) {
   const gen = useServerFn(generateCaption);
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [drag, setDrag] = useState(false);
 
   async function handle(files: FileList | File[]) {
+    if (disabled || progress) return;
     const list = Array.from(files).filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
     if (!list.length) return;
     setProgress({ done: 0, total: list.length });
@@ -216,23 +218,24 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
         toast.error(`${orig.name}: ফাইলটি ${isVid ? "500MB" : "20MB"}-এর বেশি — আপলোড হয়নি`);
         continue;
       }
-      let ext = orig.name.includes(".") ? orig.name.split(".").pop()!.toLowerCase() : (isVid ? "mp4" : "jpg");
+      let ext = orig.name.includes(".") ? (orig.name.split(".").pop() ?? "jpg").toLowerCase() : (isVid ? "mp4" : "jpg");
       if (isVid && !/^(mp4|mov|m4v|webm)$/.test(ext)) ext = "mp4";
       const path = `${userId}/${crypto.randomUUID()}.${ext}`;
       const up = await supabase.storage.from("post-images").upload(path, orig, { contentType: orig.type || "image/jpeg" });
       if (up.error) { toast.error(`${orig.name}: ${up.error.message}`); continue; }
-      const { data, error } = await supabase.from("posts").insert({ user_id: userId, image_path: path }).select("id").single();
+      const { data, error } = await supabase.from("posts").insert({ user_id: userId, image_path: path, page_ref: pageRef }).select("id").single();
       if (error) { toast.error(error.message); continue; }
       ids.push(data.id);
     }
     onDone();
-    // Generate captions two at a time.
+    // Generate captions five at a time.
     let done = 0;
     const queue = [...ids];
     let stop = false;
     const worker = async () => {
       while (queue.length && !stop) {
-        const id = queue.shift()!;
+        const id = queue.shift();
+        if (!id) break;
         try {
           await gen({ data: { postId: id } });
         } catch (e) {
@@ -260,14 +263,14 @@ function Uploader({ userId, onDone }: { userId: string; onDone: () => void }) {
       <h2 className="text-3xl font-extrabold">ডিজাইন আপলোড করুন</h2>
       <p className="mt-2 max-w-md text-muted-foreground">একসাথে অনেকগুলো ছবি টেনে আনুন। প্রতিটির জন্য AI বাংলা ক্যাপশন লিখে দেবে। ভিডিও দিলে Facebook ভিডিও ও Instagram Reels হিসেবে যাবে। কোয়ালিটি অপরিবর্তিত থাকে (ছবি সর্বোচ্চ 20MB, ভিডিও 500MB)।</p>
       <input ref={input} type="file" accept="image/*,video/mp4,video/quicktime,video/webm" multiple hidden onChange={(e) => e.target.files && handle(e.target.files)} />
-      <Button className="mt-6" size="lg" disabled={!!progress} onClick={() => input.current?.click()}>
+      <Button className="mt-6" size="lg" disabled={disabled || !!progress} onClick={() => input.current?.click()}>
         {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : "ছবি / ভিডিও বাছাই করুন"}
       </Button>
     </div>
   );
 }
 
-function DriveImport({ userId, onDone }: { userId: string; onDone: () => void }) {
+function DriveImport({ userId, pageRef, disabled, onDone }: { userId: string; pageRef: string | null; disabled: boolean; onDone: () => void }) {
   const imp = useServerFn(importDriveLinks);
   const gen = useServerFn(generateCaption);
   const [links, setLinks] = useState("");
@@ -281,23 +284,25 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
   }, [userId]);
 
   async function run() {
+    if (disabled || busy) return;
     if (!links.trim()) { toast.error("Drive লিংক পেস্ট করুন"); return; }
     setBusy(true);
     try {
-      const r = await imp({ data: { links } });
+      const r = await imp({ data: { links, pageRef } });
       r.errors.forEach((e) => toast.error(e));
       if (!r.created.length) { toast.error("কোনো ছবি আনা যায়নি — ফাইলগুলো কি Drive-এ আছে?"); return; }
       toast.success(`${r.created.length} টি ছবি Drive থেকে এসেছে — ক্যাপশন লেখা হচ্ছে…`);
       setLinks("");
       onDone();
-      // Generate captions two at a time, like the uploader.
+      // Generate captions five at a time, like the uploader.
       const queue = [...r.created];
       let done = 0;
       let stop = false;
       setProgress({ done: 0, total: queue.length });
       const worker = async () => {
         while (queue.length && !stop) {
-          const id = queue.shift()!;
+          const id = queue.shift();
+        if (!id) break;
           try {
             await gen({ data: { postId: id } });
           } catch (e) {
@@ -333,7 +338,7 @@ function DriveImport({ userId, onDone }: { userId: string; onDone: () => void })
         value={links}
         onChange={(e) => setLinks(e.target.value)}
       />
-      <Button className="mt-3 w-full" variant="secondary" disabled={busy} onClick={run}>
+      <Button className="mt-3 w-full" variant="secondary" disabled={disabled || busy} onClick={run}>
         {progress ? `ক্যাপশন তৈরি হচ্ছে ${progress.done}/${progress.total}` : busy ? "Drive থেকে আনা হচ্ছে…" : "Drive থেকে আনুন"}
       </Button>
     </div>
@@ -344,17 +349,13 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const vary = useServerFn(generateCaptionVariations);
-  const pagesFn = useServerFn(listPages);
-  const pagesQ = useQuery({ queryKey: ["pages"], queryFn: () => pagesFn() });
-  const pages = pagesQ.data ?? [];
-  const [target, setTarget] = useState<string>(post.page_ref ?? "");
   const [tone, setTone] = useState("");
   const [ideas, setIdeas] = useState<string[] | null>(null);
   const [caption, setCaption] = useState(post.caption);
   const [dt, setDt] = useState(() => {
-    const v = toLocalInput(post.scheduled_at);
+    const v = dhakaInput(post.scheduled_at);
     if (v) return { d: v.slice(0, 10), t: v.slice(11, 16) };
-    return defaultDt ?? { d: toLocalInput(new Date().toISOString()).slice(0, 10), t: "06:00" };
+    return defaultDt ?? { d: dhakaInput(new Date().toISOString()).slice(0, 10), t: "06:00" };
   });
   const when = dt.d && dt.t ? `${dt.d}T${dt.t}` : "";
   const [busy, setBusy] = useState<string | null>(null);
@@ -371,24 +372,17 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
     run("schedule", async () => {
       if (!caption.trim()) throw new Error("ক্যাপশন খালি");
       if (!when) throw new Error("পোস্টের সময় দিন");
-      const at = new Date(when);
+      const at = new Date(`${when}:00+06:00`);
       if (at.getTime() < Date.now() - 60_000) throw new Error("ভবিষ্যতের সময় দিন");
-      const all = target === "all";
-      const first = all ? null : target || null;
-      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null, page_ref: first }).eq("id", post.id);
+      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null }).eq("id", post.id);
       if (error) throw error;
-      if (all && pages.length) {
-        const { error: e2 } = await supabase.from("posts").insert(pages.map((p) => ({ user_id: post.user_id, image_path: post.image_path, caption, scheduled_at: at.toISOString(), status: "scheduled", page_ref: p.id })));
-        if (e2) throw e2;
-        setTarget("");
-      }
-      toast.success(all ? `${pages.length + 1}টি পেজে Scheduled ✓` : "Scheduled ✓");
+      toast.success("Scheduled ✓");
       onChange();
     });
 
   const saveDraft = () =>
     run("save", async () => {
-      const { error } = await supabase.from("posts").update({ caption, scheduled_at: when ? new Date(when).toISOString() : null }).eq("id", post.id);
+      const { error } = await supabase.from("posts").update({ caption, scheduled_at: when ? new Date(`${when}:00+06:00`).toISOString() : null }).eq("id", post.id);
       if (error) throw error;
       toast.success("সেভ হয়েছে");
       onChange();
@@ -423,8 +417,8 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
 
   const postNow = () =>
     run("now", async () => {
-      if (target === "all") throw new Error("এখনই পোস্টে একটি পেজ বেছে নিন, অথবা সব পেজে Schedule করুন");
-      await supabase.from("posts").update({ caption, page_ref: target || null }).eq("id", post.id);
+      const { error } = await supabase.from("posts").update({ caption }).eq("id", post.id);
+      if (error) throw error;
       await pub({ data: { postId: post.id } });
       toast.success("Facebook এ পোস্ট হয়েছে!");
       onChange();
@@ -478,13 +472,6 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
           </p>
         ) : (
           <>
-            {pages.length > 0 && (
-              <select value={target} disabled={locked || post.status === "scheduled"} onChange={(e) => setTarget(e.target.value)} className="h-9 w-full rounded-md border bg-background px-2 text-sm" aria-label="কোন পেজে যাবে">
-                <option value="">পেজ: মূল পেজ</option>
-                {pages.map((p) => <option key={p.id} value={p.id}>পেজ: {p.name}</option>)}
-                <option value="all">সব পেজে একসাথে ({pages.length + 1}টি)</option>
-              </select>
-            )}
             <div className="space-y-2 rounded-xl border bg-muted/40 p-3">
               <label className="flex items-center gap-1.5 px-0.5 text-[13px] font-semibold text-foreground">
                 <Calendar className="h-4 w-4 text-primary" />

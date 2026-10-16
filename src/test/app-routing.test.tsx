@@ -14,4 +14,10 @@ describe("App routing", () => {
 
     expect(matches.at(-1)?.routeId).not.toBe(rootRouteId);
   });
+
+  it("matches the page-scoped dashboard", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+    const matches = router.matchRoutes("/dashboard");
+    expect(matches.at(-1)?.routeId).toBe("/_authenticated/dashboard");
+  });
 });

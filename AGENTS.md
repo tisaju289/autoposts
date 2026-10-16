@@ -15,3 +15,4 @@
 - Post images live in the private `post-images` bucket under `{userId}/`; Facebook and the Sheet get signed URLs — workspace blocks public buckets.
 - Google Sheet sync is one-way (app → sheet, full rewrite) — the app database is the source of truth.
 - Extra Facebook Pages live in `fb_pages`; a post's `page_ref` picks one (null = main page in `settings`); "all pages" duplicates the post row per page — keeps one publish result per row.
+- Dashboard scope lives in the validated `page` search parameter; queries and creation use the same page reference, and schedule helpers use Asia/Dhaka — prevents cross-page posts and browser-timezone drift.
