@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { facebookStatus, saveCaptionStyle, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
+import { addPage, listPages, removePage, facebookStatus, saveCaptionStyle, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,7 @@ function SettingsPage() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <FacebookSettings />
+        <ExtraPages />
         <SheetSettings userId={user.id} onSaved={syncQuiet} />
         <CaptionStyle userId={user.id} />
       </div>
@@ -242,6 +243,52 @@ function CaptionStyle({ userId }: { userId: string }) {
         setBusy(true);
         try { await save({ data: { tone, brandVoice: voice } }); toast.success("ক্যাপশন স্টাইল সেভ হয়েছে"); } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); } finally { setBusy(false); }
       }}>{busy ? "সেভ হচ্ছে…" : "সেভ করুন"}</Button>
+    </div>
+  );
+}
+
+function ExtraPages() {
+  const list = useServerFn(listPages);
+  const add = useServerFn(addPage);
+  const del = useServerFn(removePage);
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["pages"], queryFn: () => list() });
+  const [name, setName] = useState("");
+  const [pageId, setPageId] = useState("");
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function onAdd() {
+    if (!pageId.trim() || !token.trim()) { toast.error("Page ID আর Token দুটোই দিন"); return; }
+    setBusy(true);
+    try {
+      await add({ data: { name: name.trim(), pageId: pageId.trim(), token: token.trim() } });
+      setName(""); setPageId(""); setToken("");
+      toast.success("নতুন পেজ যোগ হয়েছে");
+      qc.invalidateQueries({ queryKey: ["pages"] });
+    } catch (e) { toast.error(e instanceof Error ? e.message : "যোগ হয়নি"); } finally { setBusy(false); }
+  }
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h3 className="text-lg font-bold">আরও Facebook Page</h3>
+      <p className="mt-1 text-sm text-muted-foreground">মূল পেজ থাকবেই। এখানে আরও পেজ যোগ করুন — প্রতিটি পোস্টে কোন পেজে যাবে বেছে নিতে পারবেন।</p>
+      <div className="mt-4 space-y-2">
+        {(q.data ?? []).map((p) => (
+          <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl border p-3">
+            <div className="min-w-0"><div className="truncate text-sm font-semibold">{p.name}</div><div className="truncate text-xs text-muted-foreground">ID: {p.pageId}</div></div>
+            <Button size="sm" variant="outline" onClick={async () => {
+              if (!confirm("এই পেজটি সরাবেন?")) return;
+              try { await del({ data: { id: p.id } }); qc.invalidateQueries({ queryKey: ["pages"] }); } catch (e) { toast.error(e instanceof Error ? e.message : "Error"); }
+            }}>সরান</Button>
+          </div>
+        ))}
+        {q.data?.length === 0 && <p className="text-xs text-muted-foreground">এখনো কোনো বাড়তি পেজ নেই।</p>}
+      </div>
+      <div className="mt-4 space-y-2">
+        <Input placeholder="পেজের নাম (যেমন: Shopno Wear 2)" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input placeholder="Page ID" value={pageId} onChange={(e) => setPageId(e.target.value)} autoComplete="off" />
+        <Input type="password" placeholder="Page Access Token" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" />
+        <Button className="w-full" disabled={busy} onClick={onAdd}>{busy ? "যোগ হচ্ছে…" : "+ পেজ যোগ করুন"}</Button>
+      </div>
     </div>
   );
 }

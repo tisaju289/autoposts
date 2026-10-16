@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Calendar, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { generateCaption, generateCaptionVariations, importDriveLinks, publishNow, syncSheet } from "@/lib/posts.functions";
+import { generateCaption, generateCaptionVariations, importDriveLinks, listPages, publishNow, syncSheet } from "@/lib/posts.functions";
 import { TONE_OPTIONS } from "@/lib/tones";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -344,6 +344,10 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const vary = useServerFn(generateCaptionVariations);
+  const pagesFn = useServerFn(listPages);
+  const pagesQ = useQuery({ queryKey: ["pages"], queryFn: () => pagesFn() });
+  const pages = pagesQ.data ?? [];
+  const [target, setTarget] = useState<string>(post.page_ref ?? "");
   const [tone, setTone] = useState("");
   const [ideas, setIdeas] = useState<string[] | null>(null);
   const [caption, setCaption] = useState(post.caption);
@@ -369,9 +373,16 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
       if (!when) throw new Error("পোস্টের সময় দিন");
       const at = new Date(when);
       if (at.getTime() < Date.now() - 60_000) throw new Error("ভবিষ্যতের সময় দিন");
-      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null }).eq("id", post.id);
+      const all = target === "all";
+      const first = all ? null : target || null;
+      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null, page_ref: first }).eq("id", post.id);
       if (error) throw error;
-      toast.success("Scheduled ✓");
+      if (all && pages.length) {
+        const { error: e2 } = await supabase.from("posts").insert(pages.map((p) => ({ user_id: post.user_id, image_path: post.image_path, caption, scheduled_at: at.toISOString(), status: "scheduled", page_ref: p.id })));
+        if (e2) throw e2;
+        setTarget("");
+      }
+      toast.success(all ? `${pages.length + 1}টি পেজে Scheduled ✓` : "Scheduled ✓");
       onChange();
     });
 
@@ -412,7 +423,8 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
 
   const postNow = () =>
     run("now", async () => {
-      await supabase.from("posts").update({ caption }).eq("id", post.id);
+      if (target === "all") throw new Error("এখনই পোস্টে একটি পেজ বেছে নিন, অথবা সব পেজে Schedule করুন");
+      await supabase.from("posts").update({ caption, page_ref: target || null }).eq("id", post.id);
       await pub({ data: { postId: post.id } });
       toast.success("Facebook এ পোস্ট হয়েছে!");
       onChange();
@@ -421,7 +433,8 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
   const remove = () =>
     run("del", async () => {
       if (!confirm("পোস্টটি মুছে ফেলবেন?")) return;
-      await supabase.storage.from("post-images").remove([post.image_path]);
+      const { count } = await supabase.from("posts").select("id", { count: "exact", head: true }).eq("image_path", post.image_path).neq("id", post.id);
+      if (!count) await supabase.storage.from("post-images").remove([post.image_path]);
       await supabase.from("posts").delete().eq("id", post.id);
       onChange();
     });
@@ -465,6 +478,13 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
           </p>
         ) : (
           <>
+            {pages.length > 0 && (
+              <select value={target} disabled={locked || post.status === "scheduled"} onChange={(e) => setTarget(e.target.value)} className="h-9 w-full rounded-md border bg-background px-2 text-sm" aria-label="কোন পেজে যাবে">
+                <option value="">পেজ: মূল পেজ</option>
+                {pages.map((p) => <option key={p.id} value={p.id}>পেজ: {p.name}</option>)}
+                <option value="all">সব পেজে একসাথে ({pages.length + 1}টি)</option>
+              </select>
+            )}
             <div className="space-y-2 rounded-xl border bg-muted/40 p-3">
               <label className="flex items-center gap-1.5 px-0.5 text-[13px] font-semibold text-foreground">
                 <Calendar className="h-4 w-4 text-primary" />
