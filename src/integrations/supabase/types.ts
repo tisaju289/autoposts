@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      fb_pages: {
+        Row: {
+          created_at: string
+          id: string
+          ig_user_id: string | null
+          name: string
+          page_id: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ig_user_id?: string | null
+          name?: string
+          page_id: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ig_user_id?: string | null
+          name?: string
+          page_id?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           caption: string
@@ -26,6 +56,7 @@ export type Database = {
           ig_post_id: string | null
           ig_reel_id: string | null
           image_path: string
+          page_ref: string | null
           posted_at: string | null
           reel_error: string | null
           reel_path: string | null
@@ -44,6 +75,7 @@ export type Database = {
           ig_post_id?: string | null
           ig_reel_id?: string | null
           image_path: string
+          page_ref?: string | null
           posted_at?: string | null
           reel_error?: string | null
           reel_path?: string | null
@@ -62,6 +94,7 @@ export type Database = {
           ig_post_id?: string | null
           ig_reel_id?: string | null
           image_path?: string
+          page_ref?: string | null
           posted_at?: string | null
           reel_error?: string | null
           reel_path?: string | null

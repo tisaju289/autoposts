@@ -43,6 +43,13 @@
       "when": 1791608831848,
       "tag": "0005_add_reel_derivatives",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792132620576,
+      "tag": "0006_add_fb_pages",
+      "breakpoints": true
     }
   ]
 }

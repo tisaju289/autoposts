@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/public/hooks/publish-due")({
             .update({ status: "posting" })
             .eq("id", id)
             .eq("status", "scheduled")
-            .select("id, image_path, caption, user_id")
+            .select("id, image_path, caption, user_id, page_ref")
             .maybeSingle();
           if (!claimed) continue;
           users.add(claimed.user_id);
