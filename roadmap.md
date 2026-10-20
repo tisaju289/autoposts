@@ -2,6 +2,10 @@
 - [x] Add a dashboard page selector and isolate posts, counts, uploads, Drive imports, and schedule defaults.
 - [x] Verify page switching, upload, scheduling and saving through the signed-in dashboard; run regression tests.
 
+# Analytics repair
+- [x] Replace rejected reach metric, preserve independent engagement, and use selected Page credentials.
+- [x] Verify signed-in analytics results and run regression tests (134 posts, 540 unique viewers, 151 reactions and 3 comments; 9 tests passed).
+
 # Reels with default music
 - [ ] Create reusable original background tracks.
 - [ ] Create private MP4 derivatives for uploaded and Drive-imported images; preserve originals.
