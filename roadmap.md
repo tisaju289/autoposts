@@ -1,3 +1,6 @@
+# Recent posts first
+- [x] Show the newest posts on top in the dashboard tabs and the analytics table; verify on screen and with tests.
+
 # Page-scoped dashboard
 - [x] Add a dashboard page selector and isolate posts, counts, uploads, Drive imports, and schedule defaults.
 - [x] Verify page switching, upload, scheduling and saving through the signed-in dashboard; run regression tests.
