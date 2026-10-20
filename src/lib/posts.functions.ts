@@ -168,22 +168,31 @@ export const saveCaptionStyle = createServerFn({ method: "POST" })
 
 export const postAnalytics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }).parse(d))
+  .inputValidator((d) => z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), pageRef: z.string().uuid().nullable().optional() }).parse(d))
   .handler(async ({ data, context }) => {
     const { fetchFbPostStats, resolvePageToken } = await import("./integrations.server");
     const [y, m] = data.month.split("-").map(Number) as [number, number];
     const from = new Date(Date.UTC(y, m - 1, 1) - 6 * 3600e3).toISOString();
     const to = new Date(Date.UTC(y, m, 1) - 6 * 3600e3).toISOString();
-    const { data: posts } = await context.supabase.from("posts").select("id, caption, posted_at, fb_post_id, ig_post_id").eq("status", "posted").gte("posted_at", from).lt("posted_at", to).order("posted_at", { ascending: true });
+    const query = context.supabase.from("posts").select("id, caption, posted_at, fb_post_id, ig_post_id").eq("user_id", context.userId).eq("status", "posted").gte("posted_at", from).lt("posted_at", to);
+    const scoped = data.pageRef ? query.eq("page_ref", data.pageRef) : query.is("page_ref", null);
+    const { data: posts, error: postsError } = await scoped.order("posted_at", { ascending: true });
+    if (postsError) throw new Error("পোস্টের তালিকা আনা যায়নি। আবার চেষ্টা করুন।");
     const { data: s } = await context.supabase.from("settings").select("fb_page_id, fb_token").eq("user_id", context.userId).maybeSingle();
-    const pageId = s?.fb_page_id || process.env["FACEBOOK_PAGE_ID"];
-    const raw = s?.fb_token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+    let pageId = s?.fb_page_id || process.env["FACEBOOK_PAGE_ID"];
+    let raw = s?.fb_token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+    if (data.pageRef) {
+      const { data: page, error } = await context.supabase.from("fb_pages").select("page_id, token").eq("id", data.pageRef).eq("user_id", context.userId).maybeSingle();
+      if (error || !page) throw new Error("পেজটি পাওয়া যায়নি। অন্য পেজ বাছুন।");
+      pageId = page.page_id;
+      raw = page.token;
+    }
     const token = pageId && raw ? await resolvePageToken(raw, pageId) : null;
     const list = posts ?? [];
-    const rows: { id: string; caption: string; posted_at: string | null; fb_post_id: string | null; instagram: boolean; likes: number; comments: number; shares: number; reach: number; error: string | null }[] = [];
+    const rows: { id: string; caption: string; posted_at: string | null; fb_post_id: string | null; instagram: boolean; likes: number | null; comments: number | null; shares: number | null; reach: number | null; error: string | null }[] = [];
     for (let i = 0; i < list.length; i += 10) {
       const chunk = await Promise.all(list.slice(i, i + 10).map(async (p) => {
-        const st = p.fb_post_id && token ? await fetchFbPostStats(p.fb_post_id, token) : { likes: 0, comments: 0, shares: 0, reach: 0, error: token ? null : "Facebook যুক্ত নেই" };
+        const st = p.fb_post_id && token ? await fetchFbPostStats(p.fb_post_id, token) : { likes: null, comments: null, shares: null, reach: null, error: token ? "এই পোস্টের Facebook পোস্ট আইডি নেই।" : "Facebook যুক্ত নেই" };
         return { id: p.id, caption: p.caption, posted_at: p.posted_at, fb_post_id: p.fb_post_id, instagram: Boolean(p.ig_post_id), ...st };
       }));
       rows.push(...chunk);

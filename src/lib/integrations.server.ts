@@ -566,24 +566,8 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
 
 /** Likes, comments and reach for a Facebook post (best effort). */
 export async function fetchFbPostStats(postId: string, token: string) {
-  const r = await fetch(
-    `https://graph.facebook.com/v21.0/${postId}?fields=reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares,insights.metric(post_impressions_unique)&access_token=${encodeURIComponent(token)}`,
-  );
-  const j = (await r.json().catch(() => ({}))) as {
-    reactions?: { summary?: { total_count?: number } };
-    comments?: { summary?: { total_count?: number } };
-    shares?: { count?: number };
-    insights?: { data?: { values?: { value?: number }[] }[] };
-    error?: { message?: string };
-  };
-  if (j.error) return { likes: 0, comments: 0, shares: 0, reach: 0, error: j.error.message ?? "error" };
-  return {
-    likes: j.reactions?.summary?.total_count ?? 0,
-    comments: j.comments?.summary?.total_count ?? 0,
-    shares: j.shares?.count ?? 0,
-    reach: j.insights?.data?.[0]?.values?.[0]?.value ?? 0,
-    error: null as string | null,
-  };
+  const { fetchPostStats } = await import("./facebook-analytics.server");
+  return fetchPostStats(postId, token);
 }
 
 export { resolvePageToken };
