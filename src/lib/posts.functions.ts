@@ -176,7 +176,7 @@ export const postAnalytics = createServerFn({ method: "POST" })
     const to = new Date(Date.UTC(y, m, 1) - 6 * 3600e3).toISOString();
     const query = context.supabase.from("posts").select("id, caption, posted_at, fb_post_id, ig_post_id").eq("user_id", context.userId).eq("status", "posted").gte("posted_at", from).lt("posted_at", to);
     const scoped = data.pageRef ? query.eq("page_ref", data.pageRef) : query.is("page_ref", null);
-    const { data: posts, error: postsError } = await scoped.order("posted_at", { ascending: true });
+    const { data: posts, error: postsError } = await scoped.order("posted_at", { ascending: false });
     if (postsError) throw new Error("পোস্টের তালিকা আনা যায়নি। আবার চেষ্টা করুন।");
     const { data: s } = await context.supabase.from("settings").select("fb_page_id, fb_token").eq("user_id", context.userId).maybeSingle();
     let pageId = s?.fb_page_id || process.env["FACEBOOK_PAGE_ID"];

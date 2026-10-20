@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultPageSlots, dhakaInput } from "@/lib/page-scope";
+import { defaultPageSlots, dhakaInput, recentFirst } from "@/lib/page-scope";
 
 describe("Page schedule defaults", () => {
   it("uses Dhaka time regardless of browser timezone", () => {
@@ -22,5 +22,25 @@ describe("Page schedule defaults", () => {
 
   it("does not replace existing draft times", () => {
     expect(defaultPageSlots([{ id: "a", status: "draft", scheduled_at: "2026-10-08T00:00:00Z" }])).toEqual({});
+  });
+});
+
+describe("Recent posts first", () => {
+  it("puts the newest post on top", () => {
+    const list = [
+      { id: "old", created_at: "2026-10-01T10:00:00Z" },
+      { id: "new", created_at: "2026-10-08T09:00:00Z" },
+      { id: "mid", created_at: "2026-10-05T08:00:00Z" },
+    ];
+    expect(recentFirst(list).map((p) => p.id)).toEqual(["new", "mid", "old"]);
+  });
+
+  it("leaves the source list in its own order", () => {
+    const list = [
+      { id: "a", created_at: "2026-10-01T10:00:00Z" },
+      { id: "b", created_at: "2026-10-02T10:00:00Z" },
+    ];
+    recentFirst(list);
+    expect(list.map((p) => p.id)).toEqual(["a", "b"]);
   });
 });
