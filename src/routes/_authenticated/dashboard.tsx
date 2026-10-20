@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { defaultPageSlots, dhakaInput } from "@/lib/page-scope";
+import { defaultPageSlots, dhakaInput, recentFirst } from "@/lib/page-scope";
 import { Calendar, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateCaption, generateCaptionVariations, importDriveLinks, listPages, publishNow, syncSheet } from "@/lib/posts.functions";
@@ -99,8 +99,10 @@ function Dashboard() {
     return c;
   }, [posts.data]);
 
-  const shown = (posts.data?.list ?? []).filter((p) =>
-    tab === "posted" ? p.status === "posted" : tab === "failed" ? p.status === "failed" : tab === "scheduled" ? p.status === "scheduled" || p.status === "posting" : p.status === "draft",
+  const shown = recentFirst(
+    (posts.data?.list ?? []).filter((p) =>
+      tab === "posted" ? p.status === "posted" : tab === "failed" ? p.status === "failed" : tab === "scheduled" ? p.status === "scheduled" || p.status === "posting" : p.status === "draft",
+    ),
   );
 
   const scheduledCount = (counts["scheduled"] ?? 0) + (counts["posting"] ?? 0);

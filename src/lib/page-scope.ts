@@ -19,3 +19,10 @@ export function defaultPageSlots(list: SchedulablePost[], now = new Date()) {
   }
   return slots;
 }
+
+// Newest additions first: the list a user reviews must start with what they just added.
+export function recentFirst<T extends { id: string; created_at: string }>(list: T[]): T[] {
+  return [...list].sort((a, b) =>
+    a.created_at === b.created_at ? b.id.localeCompare(a.id) : b.created_at.localeCompare(a.created_at),
+  );
+}
