@@ -117,7 +117,8 @@ function Dashboard() {
   const go = (k: string) => {
     setActive(k);
     if (k === "settings" || k === "analytics") {
-      router.navigate({ to: k === "settings" ? "/settings" : "/analytics" });
+      if (k === "analytics") router.navigate({ to: "/analytics", search: page ? { page } : {} });
+      else router.navigate({ to: "/settings" });
       return;
     }
     if (k === "top") window.scrollTo({ top: 0, behavior: "smooth" });
