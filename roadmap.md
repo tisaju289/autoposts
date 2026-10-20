@@ -4,7 +4,7 @@
 
 # Analytics repair
 - [x] Replace rejected reach metric, preserve independent engagement, and use selected Page credentials.
-- [ ] Verify signed-in analytics results and run regression tests.
+- [x] Verify signed-in analytics results and run regression tests (134 posts, 540 unique viewers, 151 reactions and 3 comments; 9 tests passed).
 
 # Reels with default music
 - [ ] Create reusable original background tracks.
