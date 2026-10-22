@@ -79,10 +79,15 @@ function AuthPage() {
   }
 
   async function google() {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
-    if (r.error) { toast.error(r.error.message); return; }
-    if (r.redirected) return;
-    nav({ to: "/dashboard" });
+    setGoogleBusy(true);
+    try {
+      const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
+      if (r.error) { toast.error(r.error.message); return; }
+      if (r.redirected) return;
+      nav({ to: "/dashboard" });
+    } finally {
+      setGoogleBusy(false);
+    }
   }
 
   return (
