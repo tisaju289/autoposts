@@ -27,6 +27,11 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  // Google থেকে ফিরে এলে URL-এ code/token থাকে — তখন "লগইন সম্পন্ন হচ্ছে" দেখাই
+  const [finishing, setFinishing] = useState(
+    () => typeof window !== "undefined" && /[?&#](code|access_token|error)=/.test(window.location.hash + window.location.search),
+  );
 
   useEffect(() => {
     // OAuth-এর ফেরতের URL-এ এরর থাকলে দেখাও
