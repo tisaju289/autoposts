@@ -29,9 +29,21 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    // OAuth-এর ফেরতের URL-এ এরর থাকলে দেখাও
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const search = new URLSearchParams(window.location.search);
+    const errDesc = hash.get("error_description") ?? search.get("error_description") ?? hash.get("error") ?? search.get("error");
+    if (errDesc) toast.error(errDesc.replace(/\+/g, " "));
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) nav({ to: "/dashboard" });
     });
+    // Google থেকে ফিরে আসার পর সেশন একটু দেরিতে সেট হতে পারে —
+    // তাই SIGNED_IN ইভেন্টের জন্য অপেক্ষা করি, নাহলে লগইন হয়েও /auth-এ আটকে থাকে।
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") nav({ to: "/dashboard" });
+    });
+    return () => sub.subscription.unsubscribe();
   }, [nav]);
 
   async function submit(e: React.FormEvent) {
