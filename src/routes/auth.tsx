@@ -38,7 +38,10 @@ function AuthPage() {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const search = new URLSearchParams(window.location.search);
     const errDesc = hash.get("error_description") ?? search.get("error_description") ?? hash.get("error") ?? search.get("error");
-    if (errDesc) toast.error(errDesc.replace(/\+/g, " "));
+    if (errDesc) {
+      toast.error(errDesc.replace(/\+/g, " "));
+      setFinishing(false);
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) nav({ to: "/dashboard" });
