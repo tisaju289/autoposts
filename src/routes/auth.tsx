@@ -27,13 +27,20 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  // Google থেকে ফিরে এলে URL-এ code/token থাকে — তখন "লগইন সম্পন্ন হচ্ছে" দেখাই
+  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
-    // OAuth-এর ফেরতের URL-এ এরর থাকলে দেখাও
+    // OAuth-এর ফেরতের URL-এ code/token থাকলে অগ্রগতি দেখাও; এরর থাকলে সেটা দেখাও
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const search = new URLSearchParams(window.location.search);
+    if (hash.has("code") || hash.has("access_token") || search.has("code")) setFinishing(true);
     const errDesc = hash.get("error_description") ?? search.get("error_description") ?? hash.get("error") ?? search.get("error");
-    if (errDesc) toast.error(errDesc.replace(/\+/g, " "));
+    if (errDesc) {
+      toast.error(errDesc.replace(/\+/g, " "));
+      setFinishing(false);
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) nav({ to: "/dashboard" });
@@ -71,10 +78,15 @@ function AuthPage() {
   }
 
   async function google() {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
-    if (r.error) { toast.error(r.error.message); return; }
-    if (r.redirected) return;
-    nav({ to: "/dashboard" });
+    setGoogleBusy(true);
+    try {
+      const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
+      if (r.error) { toast.error(r.error.message); return; }
+      if (r.redirected) return;
+      nav({ to: "/dashboard" });
+    } finally {
+      setGoogleBusy(false);
+    }
   }
 
   return (
@@ -85,8 +97,14 @@ function AuthPage() {
         </h1>
         <p className="mt-2 text-muted-foreground">ডিজাইন আপলোড করুন, বাংলা ক্যাপশন পান, অটো পোস্ট করুন।</p>
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
-          <Button variant="outline" className="w-full" onClick={google}>
-            Continue with Google
+          {finishing && (
+            <p className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm text-primary">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              লগইন সম্পন্ন হচ্ছে…
+            </p>
+          )}
+          <Button variant="outline" className="w-full" onClick={google} disabled={googleBusy || finishing}>
+            {googleBusy ? "Google-এ নিয়ে যাওয়া হচ্ছে…" : "Continue with Google"}
           </Button>
           <div className="my-4 text-center text-xs text-muted-foreground">অথবা</div>
           <form onSubmit={submit} className="space-y-3">
