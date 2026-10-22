@@ -98,8 +98,14 @@ function AuthPage() {
         </h1>
         <p className="mt-2 text-muted-foreground">ডিজাইন আপলোড করুন, বাংলা ক্যাপশন পান, অটো পোস্ট করুন।</p>
         <div className="mt-8 rounded-2xl border bg-card p-6 shadow-card">
-          <Button variant="outline" className="w-full" onClick={google}>
-            Continue with Google
+          {finishing && (
+            <p className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm text-primary">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              লগইন সম্পন্ন হচ্ছে…
+            </p>
+          )}
+          <Button variant="outline" className="w-full" onClick={google} disabled={googleBusy || finishing}>
+            {googleBusy ? "Google-এ নিয়ে যাওয়া হচ্ছে…" : "Continue with Google"}
           </Button>
           <div className="my-4 text-center text-xs text-muted-foreground">অথবা</div>
           <form onSubmit={submit} className="space-y-3">
