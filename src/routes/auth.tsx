@@ -29,14 +29,13 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   // Google থেকে ফিরে এলে URL-এ code/token থাকে — তখন "লগইন সম্পন্ন হচ্ছে" দেখাই
-  const [finishing, setFinishing] = useState(
-    () => typeof window !== "undefined" && /[?&#](code|access_token|error)=/.test(window.location.hash + window.location.search),
-  );
+  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
-    // OAuth-এর ফেরতের URL-এ এরর থাকলে দেখাও
+    // OAuth-এর ফেরতের URL-এ code/token থাকলে অগ্রগতি দেখাও; এরর থাকলে সেটা দেখাও
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const search = new URLSearchParams(window.location.search);
+    if (hash.has("code") || hash.has("access_token") || search.has("code")) setFinishing(true);
     const errDesc = hash.get("error_description") ?? search.get("error_description") ?? hash.get("error") ?? search.get("error");
     if (errDesc) {
       toast.error(errDesc.replace(/\+/g, " "));
