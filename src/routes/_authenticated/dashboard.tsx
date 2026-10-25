@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { defaultPageSlots, dhakaInput, recentFirst } from "@/lib/page-scope";
+import { defaultPageSlots, dhakaInput, recentFirst, reviewIntervalSlots, type ReviewSlot } from "@/lib/page-scope";
+import { ReviewIntervals } from "@/components/review-intervals";
 import { Calendar, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateCaption, generateCaptionVariations, importDriveLinks, listPages, publishNow, syncSheet } from "@/lib/posts.functions";
@@ -57,6 +58,7 @@ function Dashboard() {
   const pageName = pages.find((p) => p.id === page)?.name ?? "মূল পেজ";
   const selectPage = (value: string) => router.navigate({ to: "/dashboard", search: value ? { page: value } : {} });
   const [tab, setTab] = useState("draft");
+  const [reviewTimes, setReviewTimes] = useState<{ pageRef: string | null; slots: Record<string, ReviewSlot> } | null>(null);
 
   const posts = useQuery({
     queryKey: ["posts", user.id, pageRef],
@@ -182,6 +184,19 @@ function Dashboard() {
             </Tabs>
           </div>
 
+          {tab === "draft" && scopeReady && shown.length > 0 && (
+            <ReviewIntervals
+              key={pageRef ?? "main"}
+              count={shown.length}
+              start={defaultSlots[shown[0]?.id ?? ""] ?? { d: dhakaInput(shown[0]?.scheduled_at ?? new Date().toISOString()).slice(0, 10), t: "06:00" }}
+              onApply={(start, minutes, days) => {
+                const slots = reviewIntervalSlots(shown, start, minutes, days);
+                setReviewTimes({ pageRef, slots });
+                toast.success(`${shown.length} পোস্টের সময় সাজানো হয়েছে — অনুমোদন বাকি`);
+              }}
+            />
+          )}
+
           {posts.isError ? (
             <p role="alert" className="text-destructive">পোস্ট আনা যায়নি। <Button variant="outline" size="sm" onClick={() => posts.refetch()}>আবার চেষ্টা করুন</Button></p>
           ) : posts.isLoading || pagesQ.isPending ? (
@@ -191,7 +206,7 @@ function Dashboard() {
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {shown.map((p) => (
-                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} defaultDt={defaultSlots[p.id]} onChange={async () => { refresh(); await syncQuiet(); }} />
+                <PostCard key={p.id} post={p} img={posts.data?.urls[p.image_path]} defaultDt={defaultSlots[p.id]} reviewDt={p.status === "draft" && reviewTimes?.pageRef === pageRef ? reviewTimes.slots[p.id] : undefined} onChange={async () => { refresh(); await syncQuiet(); }} />
               ))}
             </div>
           )}
@@ -348,7 +363,7 @@ function DriveImport({ userId, pageRef, disabled, onDone }: { userId: string; pa
   );
 }
 
-function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string | undefined; defaultDt?: { d: string; t: string } | undefined; onChange: () => void }) {
+function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; img?: string | undefined; defaultDt?: ReviewSlot | undefined; reviewDt?: ReviewSlot | undefined; onChange: () => void }) {
   const gen = useServerFn(generateCaption);
   const pub = useServerFn(publishNow);
   const vary = useServerFn(generateCaptionVariations);
@@ -365,6 +380,9 @@ function PostCard({ post, img, defaultDt, onChange }: { post: Post; img?: string
   const locked = post.status === "posted" || post.status === "posting";
 
   useEffect(() => setCaption(post.caption), [post.caption]);
+  useEffect(() => {
+    if (reviewDt) setDt(reviewDt);
+  }, [reviewDt]);
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label);
