@@ -16,4 +16,5 @@
 - Google Sheet sync is one-way (app → sheet, full rewrite) — the app database is the source of truth.
 - Extra Facebook Pages live in `fb_pages`; a post's `page_ref` picks one (null = main page in `settings`); "all pages" duplicates the post row per page — keeps one publish result per row.
 - Dashboard scope lives in the validated `page` search parameter; queries and creation use the same page reference, and schedule helpers use Asia/Dhaka — prevents cross-page posts and browser-timezone drift.
+- Review interval controls use browser-safe scheduling helpers and page-scoped local date/time overrides in display order; persistence remains on Save or Approve & Schedule — arranging times must not approve captions or publish posts.
 - Analytics uses the selected page's credentials and owner-scoped posts; engagement and insights are fetched independently in `facebook-analytics.server.ts`, with unavailable metrics represented as null — a rejected insight must not erase valid engagement.
