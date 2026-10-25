@@ -1,3 +1,7 @@
+# Review scheduling intervals
+- [ ] Add date/time start controls and selectable minute/hour/day gaps for current-page review posts without auto-approving them.
+- [ ] Test concrete intervals and verify the review controls through the signed-in dashboard.
+
 # Recent posts first
 - [x] Show the newest posts on top in the dashboard tabs and the analytics table; verify on screen and with tests.
 
