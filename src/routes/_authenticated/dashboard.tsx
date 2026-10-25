@@ -188,7 +188,7 @@ function Dashboard() {
             <ReviewIntervals
               key={pageRef ?? "main"}
               count={shown.length}
-              start={defaultSlots[shown[0].id] ?? { d: dhakaInput(shown[0].scheduled_at ?? new Date().toISOString()).slice(0, 10), t: "06:00" }}
+              start={defaultSlots[shown[0]?.id ?? ""] ?? { d: dhakaInput(shown[0]?.scheduled_at ?? new Date().toISOString()).slice(0, 10), t: "06:00" }}
               onApply={(start, minutes, days) => {
                 const slots = reviewIntervalSlots(shown, start, minutes, days);
                 setReviewTimes({ pageRef, slots });

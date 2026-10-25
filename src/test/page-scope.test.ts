@@ -10,16 +10,16 @@ describe("Review post intervals", () => {
     });
   });
   it("spaces dates by 2 days at the same time", () => {
-    expect(reviewIntervalSlots(drafts, start, 0, 2).c).toEqual({ d: "2026-10-30", t: "06:00" });
+    expect(reviewIntervalSlots(drafts, start, 0, 2)["c"]).toEqual({ d: "2026-10-30", t: "06:00" });
   });
   it("adds day gaps to time gaps", () => {
-    expect(reviewIntervalSlots(drafts, start, 10, 1).b).toEqual({ d: "2026-10-27", t: "06:10" });
+    expect(reviewIntervalSlots(drafts, start, 10, 1)["b"]).toEqual({ d: "2026-10-27", t: "06:10" });
   });
   it("rolls over midnight in Dhaka", () => {
-    expect(reviewIntervalSlots(drafts, { d: "2026-10-26", t: "23:55" }, 10, 0).b).toEqual({ d: "2026-10-27", t: "00:05" });
+    expect(reviewIntervalSlots(drafts, { d: "2026-10-26", t: "23:55" }, 10, 0)["b"]).toEqual({ d: "2026-10-27", t: "00:05" });
   });
   it("supports a custom 17 minute gap", () => {
-    expect(reviewIntervalSlots(drafts, start, 17, 0).b.t).toBe("06:17");
+    expect(reviewIntervalSlots(drafts, start, 17, 0)["b"]?.t).toBe("06:17");
   });
   it("only arranges drafts, including previously saved review times, without changing statuses", () => {
     const list = [{ id: "posted", status: "posted", scheduled_at: null }, { id: "saved", status: "draft", scheduled_at: "2026-10-25T00:00:00Z" }, ...drafts];
