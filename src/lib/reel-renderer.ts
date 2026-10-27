@@ -10,8 +10,8 @@ export function reelTrackIndex(id: string) {
 
 /** Browser-only, offline encoding; originals are never overwritten. */
 export async function renderImageReel(image: Blob, trackIndex: number): Promise<Blob> {
-  const { Output, Mp4OutputFormat, BufferTarget, CanvasSource, AudioBufferSource, canEncodeAudio, canEncodeVideo } = await import('mediabunny');
-  if (!(await canEncodeVideo('avc'))) throw new Error('এই ব্রাউজারে Reels তৈরি হয় না। Chrome দিয়ে খুলুন।');
+  const { Output, Mp4OutputFormat, BufferTarget, CanvasSource, AudioBufferSource, canEncodeAudio, canEncodeVideo, EncodedVideoPacketSource, Input, BufferSource, ALL_FORMATS, EncodedPacketSink } = await import('mediabunny');
+  const nativeVideo = await canEncodeVideo('avc', { width: 1080, height: 1920, bitrate: 4_000_000 });
   if (!(await canEncodeAudio('aac'))) {
     const { registerAacEncoder } = await import('@mediabunny/aac-encoder');
     registerAacEncoder();
@@ -40,7 +40,7 @@ export async function renderImageReel(image: Blob, trackIndex: number): Promise<
         dest[i] = (source[i % source.length] ?? 0) * Math.max(0, fade) * 0.7;
       }
     }
-    const video = new CanvasSource(canvas, { codec: 'avc', bitrate: 4_000_000 });
+    const video = nativeVideo ? new CanvasSource(canvas, { codec: 'avc', bitrate: 4_000_000 }) : new EncodedVideoPacketSource('avc');
     const audio = new AudioBufferSource({ codec: 'aac', bitrate: 128_000 });
     output.addVideoTrack(video, { frameRate: 30 });
     output.addAudioTrack(audio);
@@ -51,7 +51,19 @@ export async function renderImageReel(image: Blob, trackIndex: number): Promise<
     ctx.drawImage(bitmap, (canvas.width - bitmap.width * scale) / 2, (canvas.height - bitmap.height * scale) / 2, bitmap.width * scale, bitmap.height * scale);
     await audio.add(music);
     audio.close();
-    for (let i = 0; i < duration * 30; i++) await video.add(i / 30, 1 / 30);
+    if (video instanceof CanvasSource) {
+      for (let i = 0; i < duration * 30; i++) await video.add(i / 30, 1 / 30);
+    } else {
+      const { softwareVideo } = await import('./reel-software');
+      const bytes = await softwareVideo(canvas, duration);
+      const input = new Input({ source: new BufferSource(bytes), formats: ALL_FORMATS });
+      try {
+        const track = await input.getPrimaryVideoTrack();
+        if (!track) throw new Error('Reels ভিডিও তৈরি হয়নি।');
+        const decoderConfig = await track.getDecoderConfig();
+        for await (const packet of new EncodedPacketSink(track).packets()) await video.add(packet, decoderConfig ? { decoderConfig } : undefined);
+      } finally { input.dispose(); }
+    }
     video.close();
     await output.finalize();
     if (!target.buffer) throw new Error('Reels ভিডিও তৈরি হয়নি।');
