@@ -57,6 +57,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "h264-mp4-encoder": "^1.0.12",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
     "mediabunny": "^1.61.3",
