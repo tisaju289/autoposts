@@ -14,6 +14,7 @@
 - [x] Verify signed-in analytics results and run regression tests (134 posts, 540 unique viewers, 151 reactions and 3 comments; 9 tests passed).
 
 # Reels with default music
+- [ ] Complete automatic same-image Reels preparation and publication alongside Feed and Story for this request.
 - [ ] Create reusable original background tracks.
 - [ ] Create private MP4 derivatives for uploaded and Drive-imported images; preserve originals.
 - [ ] Publish derivatives to Facebook and Instagram Reels alongside Feed and Story; retain independent outcomes.
