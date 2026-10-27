@@ -129,7 +129,7 @@ export const publishNow = createServerFn({ method: "POST" })
       .update({ status: "posting" })
       .eq("id", data.postId)
       .in("status", ["draft", "scheduled", "failed"])
-      .select("id, image_path, caption, user_id, page_ref")
+      .select("id, image_path, caption, user_id, page_ref, reel_path")
       .maybeSingle();
     if (!claimed) throw new Error("এই পোস্টটি এখন পোস্ট করা যাবে না।");
     if (!claimed.caption.trim()) {

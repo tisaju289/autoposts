@@ -14,8 +14,10 @@
 - [x] Verify signed-in analytics results and run regression tests (134 posts, 540 unique viewers, 151 reactions and 3 comments; 9 tests passed).
 
 # Reels with default music
-- [ ] Create reusable original background tracks.
-- [ ] Create private MP4 derivatives for uploaded and Drive-imported images; preserve originals.
-- [ ] Publish derivatives to Facebook and Instagram Reels alongside Feed and Story; retain independent outcomes.
-- [ ] Clean derivatives after 12 hours and show Reel outcomes.
-- [ ] Verify conversion, publishing requests, and existing routing tests.
+- [x] Complete automatic same-image Reels preparation and publication alongside Feed and Story for this request.
+- [x] Create reusable original background tracks.
+- [x] Create private MP4 derivatives for uploaded and Drive-imported images; preserve originals.
+- [x] Wire derivatives to Facebook and Instagram Reels alongside Feed and Story; retain independent outcomes.
+- [x] Clean derivatives after 12 hours and show Reel outcomes.
+- [x] Verify real browser conversion (8 seconds, 1080×1920 H264/AAC), mocked publishing requests and regressions (27 tests).
+- [ ] Verify authenticated upload → scheduled Facebook/Instagram Reel readback; blocked because no requesting-user account/session is available and no live post was published during testing.
