@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { publishFacebookReel } from '@/lib/facebook-reels.server';
 import { publishClaimedPost } from '@/lib/integrations.server';
