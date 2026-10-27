@@ -481,11 +481,11 @@ async function publishIgStory(igId: string, token: string, imageUrl: string) {
 }
 
 /** Publish one post row that has already been claimed (status = posting). */
-export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string; user_id?: string; page_ref?: string | null }) {
+export async function publishClaimedPost(db: DB, post: { id: string; image_path: string; caption: string; user_id?: string; page_ref?: string | null; reel_path?: string | null }) {
   try {
     let creds: { pageId?: string | null; token?: string | null; igUserId?: string | null } | undefined;
     if (post.page_ref) {
-      const { data: p } = await db.from("fb_pages").select("page_id, token, ig_user_id").eq("id", post.page_ref).maybeSingle();
+      const { data: p } = await db.from("fb_pages").select("page_id, token, ig_user_id").eq("id", post.page_ref).eq('user_id', post.user_id ?? '').maybeSingle();
       if (!p) throw new Error("নির্বাচিত পেজটি আর নেই — Settings দেখুন");
       creds = { pageId: p.page_id, token: p.token, igUserId: p.ig_user_id };
     } else if (post.user_id) {
@@ -509,7 +509,8 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
         const ig = await publishToInstagram(pageId, rawToken, url, post.caption, creds?.igUserId ?? null, video);
         igId = ig.postId;
         if (ig.igUserId && post.user_id && ig.igUserId !== creds?.igUserId) {
-          await db.from("settings").upsert({
+          if (post.page_ref) await db.from('fb_pages').update({ ig_user_id: ig.igUserId }).eq('id', post.page_ref).eq('user_id', post.user_id);
+          else await db.from("settings").upsert({
             user_id: post.user_id,
             ig_user_id: ig.igUserId,
             updated_at: new Date().toISOString(),
@@ -545,6 +546,30 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
         }
       }
     }
+    // Each Reel destination is independent: failure must not retry the successful Feed.
+    let fbReelId: string | null = null;
+    let igReelId: string | null = video ? igId : null;
+    const reelErrors: string[] = [];
+    if (pageId && rawToken) {
+      if (video || post.reel_path) {
+        try {
+          const reelUrl = video ? url : await signedUrl(db, post.reel_path ?? '', 3600);
+          const token = await resolvePageToken(rawToken, pageId);
+          const { publishFacebookReel } = await import('./facebook-reels.server');
+          const results = await Promise.allSettled([
+            publishFacebookReel(pageId, token, reelUrl, post.caption),
+            video ? Promise.resolve({ postId: igId }) : publishToInstagram(pageId, token, reelUrl, post.caption, creds?.igUserId, true),
+          ]);
+          const [fb, ig] = results;
+          if (fb.status === 'fulfilled') fbReelId = fb.value;
+          else reelErrors.push(`FB Reels: ${fb.reason instanceof Error ? fb.reason.message : String(fb.reason)}`);
+          if (ig.status === 'fulfilled') igReelId = ig.value.postId;
+          else reelErrors.push(`IG Reels: ${ig.reason instanceof Error ? ig.reason.message : String(ig.reason)}`);
+        } catch (error) {
+          reelErrors.push(error instanceof Error ? error.message : String(error));
+        }
+      } else reelErrors.push('ছবির Reels ভিডিও প্রস্তুত হয়নি।');
+    }
     await db
       .from("posts")
       .update({
@@ -552,6 +577,9 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
         fb_post_id: fbId,
         ig_post_id: igId,
         ig_error: igErr,
+        fb_reel_id: fbReelId,
+        ig_reel_id: igReelId,
+        reel_error: reelErrors.join(' | ') || null,
         posted_at: new Date().toISOString(),
         error: null,
       })

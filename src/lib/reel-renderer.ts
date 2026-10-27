@@ -66,10 +66,12 @@ export async function renderImageReel(image: Blob, trackIndex: number): Promise<
 }
 
 const inFlight = new Map<string, Promise<void>>();
+let renderQueue: Promise<void> = Promise.resolve();
 export function preparePostReel(postId: string): Promise<void> {
   const pending = inFlight.get(postId);
   if (pending) return pending;
-  const task = prepare(postId).finally(() => inFlight.delete(postId));
+  const task = renderQueue.then(() => prepare(postId)).finally(() => inFlight.delete(postId));
+  renderQueue = task.catch(() => undefined);
   inFlight.set(postId, task);
   return task;
 }
@@ -82,7 +84,13 @@ async function prepare(postId: string) {
   if (/\.(mp4|mov|m4v|webm)$/i.test(post.image_path)) return;
   const { data: original, error: downloadError } = await supabase.storage.from('post-images').download(post.image_path);
   if (downloadError || !original) throw new Error(downloadError?.message ?? 'ছবি পাওয়া যায়নি।');
-  const blob = await renderImageReel(original, reelTrackIndex(postId));
+  let blob: Blob;
+  try {
+    blob = await renderImageReel(original, reelTrackIndex(postId));
+  } catch (error) {
+    await supabase.from('posts').update({ reel_error: error instanceof Error ? error.message : 'Reels তৈরি হয়নি।' }).eq('id', postId);
+    throw error;
+  }
   const path = `${post.user_id}/reels/${postId}.mp4`;
   const { error: uploadError } = await supabase.storage.from('post-images').upload(path, blob, { contentType: 'video/mp4', upsert: true });
   if (uploadError) throw new Error(uploadError.message);

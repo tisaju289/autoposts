@@ -85,6 +85,16 @@ function Dashboard() {
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["posts"] });
+  const reelAttempts = useRef(new Set<string>());
+  useEffect(() => {
+    for (const post of posts.data?.list ?? []) {
+      if (!['draft', 'scheduled', 'failed'].includes(post.status) || !post.image_path || post.reel_path || /\.(mp4|mov|m4v|webm)$/i.test(post.image_path) || reelAttempts.current.has(post.id)) continue;
+      reelAttempts.current.add(post.id);
+      void import('@/lib/reel-renderer').then(({ preparePostReel }) => preparePostReel(post.id))
+        .catch(() => undefined)
+        .finally(() => { void qc.invalidateQueries({ queryKey: ['posts', user.id] }); });
+    }
+  }, [posts.data, qc, user.id]);
   const syncQuiet = async () => {
     try {
       await sync();
@@ -395,6 +405,8 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
       if (!when) throw new Error("পোস্টের সময় দিন");
       const at = new Date(`${when}:00+06:00`);
       if (at.getTime() < Date.now() - 60_000) throw new Error("ভবিষ্যতের সময় দিন");
+      const { preparePostReel } = await import('@/lib/reel-renderer');
+      await preparePostReel(post.id);
       const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null }).eq("id", post.id);
       if (error) throw error;
       toast.success("Scheduled ✓");
@@ -438,6 +450,9 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
 
   const postNow = () =>
     run("now", async () => {
+      if (!caption.trim()) throw new Error('ক্যাপশন খালি');
+      const { preparePostReel } = await import('@/lib/reel-renderer');
+      await preparePostReel(post.id);
       const { error } = await supabase.from("posts").update({ caption }).eq("id", post.id);
       if (error) throw error;
       await pub({ data: { postId: post.id } });
@@ -450,6 +465,7 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
       if (!confirm("পোস্টটি মুছে ফেলবেন?")) return;
       const { count } = await supabase.from("posts").select("id", { count: "exact", head: true }).eq("image_path", post.image_path).neq("id", post.id);
       if (!count) await supabase.storage.from("post-images").remove([post.image_path]);
+      if (post.reel_path) await supabase.storage.from('post-images').remove([post.reel_path]);
       await supabase.from("posts").delete().eq("id", post.id);
       onChange();
     });
@@ -484,6 +500,18 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
           </div>
         )}
         {post.error && <p className="text-xs text-destructive">{post.error}</p>}
+        {post.reel_error && <p role="alert" className="break-words text-xs text-destructive">Reels: {post.reel_error}</p>}
+        {!/\.(mp4|mov|m4v|webm)$/i.test(post.image_path) && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>Facebook Reels: {post.fb_reel_id ? 'প্রকাশিত ✓' : post.status === 'posted' ? 'প্রকাশ হয়নি' : post.reel_path ? 'প্রস্তুত ✓' : post.reel_error ? 'তৈরি হয়নি' : 'তৈরি হচ্ছে…'}</span>
+            {post.ig_reel_id && <span>Instagram Reels: প্রকাশিত ✓</span>}
+            {!locked && post.reel_error && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('reel', async () => {
+              const { preparePostReel } = await import('@/lib/reel-renderer');
+              await preparePostReel(post.id);
+              onChange();
+            })}>Reels আবার তৈরি করুন</Button>}
+          </div>
+        )}
         {post.status === "posted" ? (
           <p className="text-sm text-muted-foreground">
             পোস্ট হয়েছে: {post.posted_at && new Date(post.posted_at).toLocaleString()}
@@ -513,7 +541,7 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
               {post.status === "scheduled" ? (
                 <Button size="sm" variant="outline" className="w-full" disabled={!!busy} onClick={unschedule}>Unschedule</Button>
               ) : (
-                <Button size="sm" className="w-full" disabled={!!busy || locked} onClick={schedule}>{busy === "schedule" ? "…" : "Approve & Schedule"}</Button>
+                <Button size="sm" className="w-full" disabled={!!busy || locked} onClick={schedule}>{busy === "schedule" ? "Reels ও শিডিউল প্রস্তুত হচ্ছে…" : "Approve & Schedule"}</Button>
               )}
               <div className="grid grid-cols-2 gap-2">
                 <Button size="sm" variant="secondary" disabled={!!busy || locked} onClick={saveDraft}>Save</Button>

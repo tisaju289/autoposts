@@ -18,3 +18,4 @@
 - Dashboard scope lives in the validated `page` search parameter; queries and creation use the same page reference, and schedule helpers use Asia/Dhaka — prevents cross-page posts and browser-timezone drift.
 - Review interval controls use browser-safe scheduling helpers and page-scoped local date/time overrides in display order; persistence remains on Save or Approve & Schedule — arranging times must not approve captions or publish posts.
 - Analytics uses the selected page's credentials and owner-scoped posts; engagement and insights are fetched independently in `facebook-analytics.server.ts`, with unavailable metrics represented as null — a rejected insight must not erase valid engagement.
+- Image Reel derivatives are encoded serially in the browser before approval or immediate publishing, stored privately alongside untouched originals, and read by both publisher paths; destination outcomes remain independent so a Reel error never retries a successful Feed post.
