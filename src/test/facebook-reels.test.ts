@@ -24,8 +24,8 @@ describe('same-image Reels', () => {
     const builder = (table: string) => {
       const q: Record<string, unknown> = {};
       for (const method of ['select', 'eq', 'upsert']) q[method] = () => q;
-      q.update = (value: Record<string, unknown>) => { updates.push(value); return q; };
-      q.maybeSingle = async () => ({ data: table === 'settings' ? { fb_page_id: 'page', fb_token: 'token' } : null });
+      q['update'] = (value: Record<string, unknown>) => { updates.push(value); return q; };
+      q['maybeSingle'] = async () => ({ data: table === 'settings' ? { fb_page_id: 'page', fb_token: 'token' } : null });
       return q;
     };
     const signed = vi.fn(async (path: string) => ({ data: { signedUrl: `https://media.example/${path}` } }));
@@ -49,9 +49,9 @@ describe('same-image Reels', () => {
     expect(fetcher.mock.calls.some(([url]) => String(url).endsWith('/photo_stories'))).toBe(true);
     expect(fetcher.mock.calls.some(([url]) => String(url).endsWith('/video_reels'))).toBe(true);
     const final = updates.at(-1);
-    expect(final?.status).toBe('posted');
-    expect(final?.fb_post_id).toBe('feed');
-    expect(final?.reel_error).toContain('reel rejected');
-    expect(final?.error).toBeNull();
+    expect(final?.['status']).toBe('posted');
+    expect(final?.['fb_post_id']).toBe('feed');
+    expect(final?.['reel_error']).toContain('reel rejected');
+    expect(final?.['error']).toBeNull();
   });
 });

@@ -49,8 +49,7 @@ export async function renderImageReel(image: Blob, trackIndex: number): Promise<
     ctx.fillStyle = '#000000'; // Media letterboxing, not a UI theme color.
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bitmap, (canvas.width - bitmap.width * scale) / 2, (canvas.height - bitmap.height * scale) / 2, bitmap.width * scale, bitmap.height * scale);
-    await audio.add(music);
-    audio.close();
+    const addAudio = audio.add(music).then(() => audio.close());
     if (video instanceof CanvasSource) {
       for (let i = 0; i < duration * 30; i++) await video.add(i / 30, 1 / 30);
     } else {
@@ -65,6 +64,7 @@ export async function renderImageReel(image: Blob, trackIndex: number): Promise<
       } finally { input.dispose(); }
     }
     video.close();
+    await addAudio;
     await output.finalize();
     if (!target.buffer) throw new Error('Reels ভিডিও তৈরি হয়নি।');
     return new Blob([target.buffer], { type: 'video/mp4' });
