@@ -105,7 +105,10 @@ async function prepare(postId: string) {
   }
   const path = `${post.user_id}/reels/${postId}.mp4`;
   const { error: uploadError } = await supabase.storage.from('post-images').upload(path, blob, { contentType: 'video/mp4', upsert: true });
-  if (uploadError) throw new Error(uploadError.message);
+  if (uploadError) {
+    await supabase.from('posts').update({ reel_error: uploadError.message }).eq('id', postId);
+    throw new Error(uploadError.message);
+  }
   const { error: saveError } = await supabase.from('posts').update({ reel_path: path, reel_error: null }).eq('id', postId);
   if (saveError) throw new Error(saveError.message);
 }
