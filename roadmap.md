@@ -1,3 +1,8 @@
+# Scheduled 15-second Reels
+- [ ] Make image Reels 15 seconds and replace older derivatives on unpublished posts.
+- [ ] Prepare existing scheduled images across pages without changing captions or scheduled times.
+- [ ] Verify encoding and backfill rules; live Facebook/Instagram publication requires an authenticated account.
+
 # Review scheduling intervals
 - [x] Add date/time start controls and selectable minute/hour/day gaps for current-page review posts without auto-approving them.
 - [x] Test concrete intervals and verify the review controls through the signed-in dashboard (5/10 minutes, 2/5 hours, 2 days, individual edits, unchanged draft status; temporary posts cleaned; 20 tests passed).
