@@ -405,14 +405,10 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
       if (!when) throw new Error("পোস্টের সময় দিন");
       const at = new Date(`${when}:00+06:00`);
       if (at.getTime() < Date.now() - 60_000) throw new Error("ভবিষ্যতের সময় দিন");
-      try {
-        const { preparePostReel } = await import('@/lib/reel-renderer');
-        await preparePostReel(post.id);
-      } catch {
-        // Reels preparation must not block Feed scheduling.
-      }
-      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null }).eq("id", post.id).eq("user_id", post.user_id);
+      // Schedule the Feed immediately; Reel rendering is optional and independent.
+      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null, reel_error: null }).eq("id", post.id).eq("user_id", post.user_id);
       if (error) throw error;
+      void import('@/lib/reel-renderer').then(({ preparePostReel }) => preparePostReel(post.id)).catch(() => undefined).finally(onChange);
       toast.success("Scheduled ✓");
       onChange();
     });
@@ -455,14 +451,10 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
   const postNow = () =>
     run("now", async () => {
       if (!caption.trim()) throw new Error('ক্যাপশন খালি');
-      try {
-        const { preparePostReel } = await import('@/lib/reel-renderer');
-        await preparePostReel(post.id);
-      } catch {
-        // Reels preparation must not block Feed publishing.
-      }
-      const { error } = await supabase.from("posts").update({ caption }).eq("id", post.id).eq("user_id", post.user_id);
+      // Publish the Feed immediately; Reel rendering is optional and independent.
+      const { error } = await supabase.from("posts").update({ caption, reel_error: null }).eq("id", post.id).eq("user_id", post.user_id);
       if (error) throw error;
+      void import('@/lib/reel-renderer').then(({ preparePostReel }) => preparePostReel(post.id)).catch(() => undefined);
       await pub({ data: { postId: post.id } });
       toast.success("Facebook এ পোস্ট হয়েছে!");
       onChange();
@@ -511,18 +503,16 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
         {post.reel_error && <p role="alert" className="break-words text-xs text-destructive">Reels: {post.reel_error}</p>}
         {!/\.(mp4|mov|m4v|webm)$/i.test(post.image_path) && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Facebook Reels: {post.fb_reel_id ? 'প্রকাশিত ✓' : post.status === 'posted' ? 'প্রকাশ হয়নি' : post.reel_path ? 'প্রস্তুত ✓' : post.reel_error ? 'তৈরি হয়নি' : 'তৈরি হচ্ছে…'}</span>
+            <span>Facebook Reels: {post.fb_reel_id ? 'প্রকাশিত ✓' : post.status === 'posted' ? 'প্রকাশ হয়নি' : post.reel_path ? 'প্রস্তুত ✓' : post.reel_error ? 'তৈরি হয়নি' : 'স্বয়ংক্রিয় প্রস্তুত হচ্ছে'}</span>
             {post.ig_reel_id && <span>Instagram Reels: প্রকাশিত ✓</span>}
-            {!locked && post.reel_error && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('reel', async () => {
+            {!locked && !post.reel_path && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('reel', async () => {
+              await supabase.from('posts').update({ reel_error: null }).eq('id', post.id).eq('user_id', post.user_id);
               const { preparePostReel } = await import('@/lib/reel-renderer');
-              try {
-                await preparePostReel(post.id);
-              } catch (error) {
+              await preparePostReel(post.id).catch((error) => {
                 toast.error(error instanceof Error ? error.message : 'Reels আবার তৈরি করা যায়নি।');
-                return;
-              }
+              });
               onChange();
-            })}>Reels আবার তৈরি করুন</Button>}
+            })}>{post.reel_error ? 'Reels আবার তৈরি করুন' : 'Reels তৈরি করুন'}</Button>}
           </div>
         )}
         {post.status === "posted" ? (

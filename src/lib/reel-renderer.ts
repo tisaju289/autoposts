@@ -104,10 +104,14 @@ async function prepare(postId: string) {
     throw error;
   }
   const path = `${post.user_id}/reels/${postId}.mp4`;
-  const { error: uploadError } = await supabase.storage.from('post-images').upload(path, blob, { contentType: 'video/mp4', upsert: true });
+  let { error: uploadError } = await supabase.storage.from('post-images').upload(path, blob, { contentType: 'video/mp4', upsert: true });
+  if (uploadError && /row-level security|policy/i.test(uploadError.message)) {
+    await supabase.storage.from('post-images').remove([path]);
+    ({ error: uploadError } = await supabase.storage.from('post-images').upload(path, blob, { contentType: 'video/mp4', upsert: false }));
+  }
   if (uploadError) {
     const message = /row-level security|policy/i.test(uploadError.message)
-      ? 'Reels সংরক্ষণে অনুমতি সমস্যা হয়েছে। পুনরায় লগইন করে চেষ্টা করুন।'
+      ? 'Reels সংরক্ষণে অনুমতি সমস্যা হয়েছে। Migration 0007 लागू করুন বা পুনরায় লগইন করুন।'
       : uploadError.message;
     await supabase.from('posts').update({ reel_error: message }).eq('id', postId).eq('user_id', post.user_id);
     throw new Error(message);
