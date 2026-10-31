@@ -515,7 +515,12 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
             {post.ig_reel_id && <span>Instagram Reels: প্রকাশিত ✓</span>}
             {!locked && post.reel_error && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('reel', async () => {
               const { preparePostReel } = await import('@/lib/reel-renderer');
-              await preparePostReel(post.id);
+              try {
+                await preparePostReel(post.id);
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Reels আবার তৈরি করা যায়নি।');
+                return;
+              }
               onChange();
             })}>Reels আবার তৈরি করুন</Button>}
           </div>
