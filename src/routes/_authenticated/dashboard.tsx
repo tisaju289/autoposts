@@ -405,9 +405,13 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
       if (!when) throw new Error("পোস্টের সময় দিন");
       const at = new Date(`${when}:00+06:00`);
       if (at.getTime() < Date.now() - 60_000) throw new Error("ভবিষ্যতের সময় দিন");
-      const { preparePostReel } = await import('@/lib/reel-renderer');
-      await preparePostReel(post.id);
-      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null }).eq("id", post.id);
+      try {
+        const { preparePostReel } = await import('@/lib/reel-renderer');
+        await preparePostReel(post.id);
+      } catch {
+        // Reels preparation must not block Feed scheduling.
+      }
+      const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null }).eq("id", post.id).eq("user_id", post.user_id);
       if (error) throw error;
       toast.success("Scheduled ✓");
       onChange();
@@ -415,7 +419,7 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
 
   const saveDraft = () =>
     run("save", async () => {
-      const { error } = await supabase.from("posts").update({ caption, scheduled_at: when ? new Date(`${when}:00+06:00`).toISOString() : null }).eq("id", post.id);
+      const { error } = await supabase.from("posts").update({ caption, scheduled_at: when ? new Date(`${when}:00+06:00`).toISOString() : null }).eq("id", post.id).eq("user_id", post.user_id);
       if (error) throw error;
       toast.success("সেভ হয়েছে");
       onChange();
@@ -423,7 +427,7 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
 
   const unschedule = () =>
     run("unschedule", async () => {
-      await supabase.from("posts").update({ status: "draft" }).eq("id", post.id);
+      await supabase.from("posts").update({ status: "draft" }).eq("id", post.id).eq("user_id", post.user_id);
       onChange();
     });
 
@@ -451,9 +455,13 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
   const postNow = () =>
     run("now", async () => {
       if (!caption.trim()) throw new Error('ক্যাপশন খালি');
-      const { preparePostReel } = await import('@/lib/reel-renderer');
-      await preparePostReel(post.id);
-      const { error } = await supabase.from("posts").update({ caption }).eq("id", post.id);
+      try {
+        const { preparePostReel } = await import('@/lib/reel-renderer');
+        await preparePostReel(post.id);
+      } catch {
+        // Reels preparation must not block Feed publishing.
+      }
+      const { error } = await supabase.from("posts").update({ caption }).eq("id", post.id).eq("user_id", post.user_id);
       if (error) throw error;
       await pub({ data: { postId: post.id } });
       toast.success("Facebook এ পোস্ট হয়েছে!");

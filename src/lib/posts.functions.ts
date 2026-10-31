@@ -128,6 +128,7 @@ export const publishNow = createServerFn({ method: "POST" })
       .from("posts")
       .update({ status: "posting" })
       .eq("id", data.postId)
+      .eq("user_id", context.userId)
       .in("status", ["draft", "scheduled", "failed"])
       .select("id, image_path, caption, user_id, page_ref, reel_path")
       .maybeSingle();
