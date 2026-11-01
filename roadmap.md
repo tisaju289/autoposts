@@ -1,3 +1,8 @@
+# Portable customer deployments
+- [ ] Replace fixed application connections with deployment-specific browser/server configuration while preserving the current site.
+- [ ] Deliver complete fresh-install SQL and customer setup instructions without existing data or secrets.
+- [ ] Test configuration isolation, auth and setup rules; document external-service requirements.
+
 # Scheduled 15-second Reels
 - [ ] Make image Reels 15 seconds and replace older derivatives on unpublished posts.
 - [ ] Prepare existing scheduled images across pages without changing captions or scheduled times.
