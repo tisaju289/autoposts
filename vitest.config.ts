@@ -11,6 +11,6 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: { "@/integrations/supabase/client": path.resolve(__dirname, "./src/lib/backend-client.ts"), "@": path.resolve(__dirname, "./src") },
   },
 });

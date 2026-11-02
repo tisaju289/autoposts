@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, isCustomerDeployment } from "@/lib/backend-client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const nav = useNavigate();
+  const [customer, setCustomer] = useState(false);
+  useEffect(() => setCustomer(isCustomerDeployment()), []);
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,6 +52,10 @@ function AuthPage() {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") nav({ to: "/dashboard" });
     });
+    if (search.has("token_hash") && search.get("type") === "email") {
+      const tokenHash = search.get("token_hash");
+      if (tokenHash) void supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email" }).then(({ error }) => { if (error) toast.error(error.message); });
+    }
     return () => sub.subscription.unsubscribe();
   }, [nav]);
 
@@ -65,7 +71,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin + "/dashboard" },
+          options: { emailRedirectTo: window.location.origin + "/auth" },
         });
         if (error) throw error;
         toast.success("ইমেইলে কনফার্মেশন লিংক পাঠানো হয়েছে।");
@@ -78,6 +84,7 @@ function AuthPage() {
   }
 
   async function google() {
+    if (isCustomerDeployment()) { toast.error("এই আলাদা সাইটে Email দিয়ে অ্যাকাউন্ট খুলে লগইন করুন।"); return; }
     setGoogleBusy(true);
     try {
       const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
@@ -103,10 +110,10 @@ function AuthPage() {
               লগইন সম্পন্ন হচ্ছে…
             </p>
           )}
-          <Button variant="outline" className="w-full" onClick={google} disabled={googleBusy || finishing}>
+          {!customer && <Button variant="outline" className="w-full" onClick={google} disabled={googleBusy || finishing}>
             {googleBusy ? "Google-এ নিয়ে যাওয়া হচ্ছে…" : "Continue with Google"}
-          </Button>
-          <div className="my-4 text-center text-xs text-muted-foreground">অথবা</div>
+          </Button>}
+          {!customer && <div className="my-4 text-center text-xs text-muted-foreground">অথবা</div>}
           <form onSubmit={submit} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>

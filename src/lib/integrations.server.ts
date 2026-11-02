@@ -126,7 +126,7 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
     return geminiCaption(sys, hint ? `অতিরিক্ত নির্দেশনা: ${hint}` : "এই ভিডিও পোস্টের জন্য ক্যাপশন লেখো।", null, videoUrl);
   }
   const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("AI is not configured");
+  if (!key && !process.env["GEMINI_API_KEY"]) throw new Error("AI is not configured");
   const payload = {
       model: "openai/gpt-6-astra",
       reasoning: { effort: "low" },
@@ -142,6 +142,10 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
         },
       ],
   };
+  if (process.env['CUSTOM_BACKEND_URL'] || !key) {
+    if (!process.env['GEMINI_API_KEY']) throw new Error('নিজস্ব Gemini key সেটআপ করুন।');
+    return geminiCaption(payload.instructions, hint ?? 'এই পোস্টের জন্য ক্যাপশন লেখো।', imageUrl);
+  }
   const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -171,15 +175,11 @@ export async function generateBanglaCaption(imageUrl: string | null, hint?: stri
   return text;
 }
 
-const SHEETS = "https://connector-gateway.lovable.dev/google_sheets/v4";
-const DRIVE = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
+import { googleConnection } from "./google.server";
 
 /** Lists image file IDs inside a Google Drive folder (sorted by name). */
 export async function listDriveFolderImages(folderId: string): Promise<string[]> {
-  const lk = process.env["LOVABLE_API_KEY"];
-  const dk = process.env["GOOGLE_DRIVE_API_KEY"];
-  if (!lk || !dk) throw new Error("Google Drive সংযুক্ত নয়।");
-  const headers = { Authorization: `Bearer ${lk}`, "X-Connection-Api-Key": dk };
+  const { base: DRIVE, headers } = await googleConnection("drive");
   const ids: string[] = [];
   let pageToken = "";
   do {
@@ -199,10 +199,7 @@ export async function listDriveFolderImages(folderId: string): Promise<string[]>
 
 /** Downloads an image from the user's Google Drive via the connector gateway. */
 export async function downloadDriveImage(fileId: string): Promise<{ bytes: Uint8Array; contentType: string; name: string }> {
-  const lk = process.env["LOVABLE_API_KEY"];
-  const dk = process.env["GOOGLE_DRIVE_API_KEY"];
-  if (!lk || !dk) throw new Error("Google Drive সংযুক্ত নয়।");
-  const headers = { Authorization: `Bearer ${lk}`, "X-Connection-Api-Key": dk };
+  const { base: DRIVE, headers } = await googleConnection("drive");
   const metaRes = await fetch(`${DRIVE}/files/${fileId}?fields=id,name,mimeType,size`, { headers });
   if (!metaRes.ok) {
     const body = await metaRes.text();
@@ -219,17 +216,6 @@ export async function downloadDriveImage(fileId: string): Promise<{ bytes: Uint8
   const bytes = new Uint8Array(await dl.arrayBuffer());
   if (bytes.byteLength > 20 * 1024 * 1024) throw new Error(`"${meta.name}" 20MB-এর বেশি — বাদ গেছে।`);
   return { bytes, contentType: meta.mimeType, name: meta.name ?? fileId };
-}
-
-function sheetHeaders() {
-  const lk = process.env["LOVABLE_API_KEY"];
-  const sk = process.env["GOOGLE_SHEETS_API_KEY"];
-  if (!lk || !sk) throw new Error("Google Sheets is not connected");
-  return {
-    Authorization: `Bearer ${lk}`,
-    "X-Connection-Api-Key": sk,
-    "Content-Type": "application/json",
-  };
 }
 
 const STATUS_BN: Record<string, string> = {
@@ -280,7 +266,7 @@ export async function syncSheetForUser(db: DB, userId: string) {
   ];
   const sheet = `'${settings.sheet_name.replace(/'/g, "''")}'`;
   const id = settings.spreadsheet_id;
-  const h = sheetHeaders();
+  const { base: SHEETS, headers: h } = await googleConnection("sheets");
   const clear = await fetch(`${SHEETS}/spreadsheets/${id}/values/${sheet}!A:H:clear`, {
     method: "POST",
     headers: h,
@@ -315,8 +301,8 @@ export async function publishToFacebook(
   caption: string,
   creds?: { pageId?: string | null; token?: string | null; video?: boolean },
 ) {
-  const pageId = creds?.pageId || process.env["FACEBOOK_PAGE_ID"];
-  const rawToken = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+  const pageId = creds?.pageId || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ID"]);
+  const rawToken = creds?.token || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ACCESS_TOKEN"]);
   if (!pageId || !rawToken) throw new Error("Facebook Page যুক্ত করা হয়নি (Page ID / Token নেই)।");
   const token = await resolvePageToken(rawToken, pageId);
   if (creds && (creds as { video?: boolean }).video) {
@@ -496,8 +482,8 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
         .maybeSingle();
       if (s?.fb_page_id && s?.fb_token) creds = { pageId: s.fb_page_id, token: s.fb_token, igUserId: s.ig_user_id };
     }
-    const pageId = creds?.pageId || process.env["FACEBOOK_PAGE_ID"];
-    const rawToken = creds?.token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+    const pageId = creds?.pageId || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ID"]);
+    const rawToken = creds?.token || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ACCESS_TOKEN"]);
     const url = await signedUrl(db, post.image_path, 3600);
     const video = isVideoPath(post.image_path);
     const fbId = await publishToFacebook(url, post.caption, { ...(creds ?? {}), video });

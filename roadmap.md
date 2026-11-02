@@ -1,6 +1,6 @@
 # Portable customer deployments
 - [ ] Replace fixed application connections with deployment-specific browser/server configuration while preserving the current site.
-- [ ] Deliver complete fresh-install SQL and customer setup instructions without existing data or secrets.
+- [ ] Deliver complete fresh-install SQL and a Bangla customer setup guide without existing data or secrets.
 - [ ] Test configuration isolation, auth and setup rules; document external-service requirements.
 
 # Scheduled 15-second Reels
@@ -31,3 +31,5 @@
 - [x] Clean derivatives after 12 hours and show Reel outcomes.
 - [x] Verify real browser conversion (8 seconds, 1080×1920 H264/AAC), mocked publishing requests and regressions (27 tests).
 - [ ] Verify authenticated upload → scheduled Facebook/Instagram Reel readback; blocked because no requesting-user account/session is available and no live post was published during testing.
+# Bangla setup delivery
+- [ ] Provide downloadable fresh-install SQL, customer configuration template, and step-by-step Bangla guide.
