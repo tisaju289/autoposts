@@ -23,6 +23,8 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const nav = useNavigate();
+  const [customer, setCustomer] = useState(false);
+  useEffect(() => setCustomer(isCustomerDeployment()), []);
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -108,10 +110,10 @@ function AuthPage() {
               লগইন সম্পন্ন হচ্ছে…
             </p>
           )}
-          <Button variant="outline" className="w-full" onClick={google} disabled={googleBusy || finishing}>
+          {!customer && <Button variant="outline" className="w-full" onClick={google} disabled={googleBusy || finishing}>
             {googleBusy ? "Google-এ নিয়ে যাওয়া হচ্ছে…" : "Continue with Google"}
-          </Button>
-          <div className="my-4 text-center text-xs text-muted-foreground">অথবা</div>
+          </Button>}
+          {!customer && <div className="my-4 text-center text-xs text-muted-foreground">অথবা</div>}
           <form onSubmit={submit} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>

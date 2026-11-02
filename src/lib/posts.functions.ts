@@ -77,8 +77,8 @@ export const facebookStatus = createServerFn({ method: "GET" })
       .select("fb_page_id, fb_token")
       .eq("user_id", context.userId)
       .maybeSingle();
-    const pageId = s?.fb_page_id || process.env["FACEBOOK_PAGE_ID"];
-    const token = s?.fb_token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+    const pageId = s?.fb_page_id || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ID"]);
+    const token = s?.fb_token || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ACCESS_TOKEN"]);
     let instagram: { connected: boolean; username: string | null } = { connected: false, username: null };
     if (pageId && token) {
       try {
@@ -180,8 +180,8 @@ export const postAnalytics = createServerFn({ method: "POST" })
     const { data: posts, error: postsError } = await scoped.order("posted_at", { ascending: false });
     if (postsError) throw new Error("পোস্টের তালিকা আনা যায়নি। আবার চেষ্টা করুন।");
     const { data: s } = await context.supabase.from("settings").select("fb_page_id, fb_token").eq("user_id", context.userId).maybeSingle();
-    let pageId = s?.fb_page_id || process.env["FACEBOOK_PAGE_ID"];
-    let raw = s?.fb_token || process.env["FACEBOOK_PAGE_ACCESS_TOKEN"];
+    let pageId = s?.fb_page_id || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ID"]);
+    let raw = s?.fb_token || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ACCESS_TOKEN"]);
     if (data.pageRef) {
       const { data: page, error } = await context.supabase.from("fb_pages").select("page_id, token").eq("id", data.pageRef).eq("user_id", context.userId).maybeSingle();
       if (error || !page) throw new Error("পেজটি পাওয়া যায়নি। অন্য পেজ বাছুন।");
