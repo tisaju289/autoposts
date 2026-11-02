@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { defaultPageSlots, dhakaInput, recentFirst, reviewIntervalSlots, type ReviewSlot } from "@/lib/page-scope";
 import { ReviewIntervals } from "@/components/review-intervals";
+import { needsReel, currentReel } from "@/lib/reel-policy";
 import { Calendar, Clock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/backend-client";
 import { generateCaption, generateCaptionVariations, importDriveLinks, listPages, publishNow, syncSheet } from "@/lib/posts.functions";
 import { TONE_OPTIONS } from "@/lib/tones";
 import { AppShell } from "@/components/app-shell";
@@ -85,16 +86,25 @@ function Dashboard() {
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["posts"] });
+  const allReels = useQuery({
+    queryKey: ['reel-backfill', user.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('posts').select('id, status, image_path, reel_path').eq('user_id', user.id).in('status', ['draft', 'scheduled', 'failed']);
+      if (error) throw error;
+      return data ?? [];
+    },
+    refetchInterval: 60_000,
+  });
   const reelAttempts = useRef(new Set<string>());
   useEffect(() => {
-    for (const post of posts.data?.list ?? []) {
-      if (!['draft', 'scheduled', 'failed'].includes(post.status) || !post.image_path || post.reel_path || /\.(mp4|mov|m4v|webm)$/i.test(post.image_path) || reelAttempts.current.has(post.id)) continue;
+    for (const post of [...(allReels.data ?? []), ...(posts.data?.list ?? [])]) {
+      if (!needsReel(post) || reelAttempts.current.has(post.id)) continue;
       reelAttempts.current.add(post.id);
       void import('@/lib/reel-renderer').then(({ preparePostReel }) => preparePostReel(post.id))
         .catch(() => undefined)
         .finally(() => { void qc.invalidateQueries({ queryKey: ['posts', user.id] }); });
     }
-  }, [posts.data, qc, user.id]);
+  }, [posts.data, allReels.data, qc, user.id]);
   const syncQuiet = async () => {
     try {
       await sync();
@@ -405,7 +415,9 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
       if (!when) throw new Error("পোস্টের সময় দিন");
       const at = new Date(`${when}:00+06:00`);
       if (at.getTime() < Date.now() - 60_000) throw new Error("ভবিষ্যতের সময় দিন");
-      // Schedule the Feed immediately; Reel rendering is optional and independent.
+      // Prepare the derivative before saving explicit approval.
+      const { preparePostReel } = await import('@/lib/reel-renderer');
+      await preparePostReel(post.id);
       const { error } = await supabase.from("posts").update({ caption, scheduled_at: at.toISOString(), status: "scheduled", error: null, reel_error: null }).eq("id", post.id).eq("user_id", post.user_id);
       if (error) throw error;
       void import('@/lib/reel-renderer').then(({ preparePostReel }) => preparePostReel(post.id)).catch(() => undefined).finally(onChange);
@@ -451,7 +463,8 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
   const postNow = () =>
     run("now", async () => {
       if (!caption.trim()) throw new Error('ক্যাপশন খালি');
-      // Publish the Feed immediately; Reel rendering is optional and independent.
+      const { preparePostReel } = await import('@/lib/reel-renderer');
+      await preparePostReel(post.id);
       const { error } = await supabase.from("posts").update({ caption, reel_error: null }).eq("id", post.id).eq("user_id", post.user_id);
       if (error) throw error;
       void import('@/lib/reel-renderer').then(({ preparePostReel }) => preparePostReel(post.id)).catch(() => undefined);
@@ -503,9 +516,9 @@ function PostCard({ post, img, defaultDt, reviewDt, onChange }: { post: Post; im
         {post.reel_error && <p role="alert" className="break-words text-xs text-destructive">Reels: {post.reel_error}</p>}
         {!/\.(mp4|mov|m4v|webm)$/i.test(post.image_path) && (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Facebook Reels: {post.fb_reel_id ? 'প্রকাশিত ✓' : post.status === 'posted' ? 'প্রকাশ হয়নি' : post.reel_path ? 'প্রস্তুত ✓' : post.reel_error ? 'তৈরি হয়নি' : 'স্বয়ংক্রিয় প্রস্তুত হচ্ছে'}</span>
+            <span>Facebook Reels: {post.fb_reel_id ? 'প্রকাশিত ✓' : post.status === 'posted' ? 'প্রকাশ হয়নি' : currentReel(post.reel_path) ? '15 সেকেন্ড প্রস্তুত ✓' : post.reel_error ? 'তৈরি হয়নি' : 'স্বয়ংক্রিয় প্রস্তুত হচ্ছে'}</span>
             {post.ig_reel_id && <span>Instagram Reels: প্রকাশিত ✓</span>}
-            {!locked && !post.reel_path && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('reel', async () => {
+            {!locked && !currentReel(post.reel_path) && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => run('reel', async () => {
               await supabase.from('posts').update({ reel_error: null }).eq('id', post.id).eq('user_id', post.user_id);
               const { preparePostReel } = await import('@/lib/reel-renderer');
               await preparePostReel(post.id).catch((error) => {

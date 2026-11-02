@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/backend-client";
 import { addPage, listPages, removePage, facebookStatus, saveCaptionStyle, saveFacebookCreds, syncSheet } from "@/lib/posts.functions";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireBackendAuth as requireSupabaseAuth } from "@/lib/backend-auth";
 
 export const generateCaption = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

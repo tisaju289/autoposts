@@ -8,7 +8,8 @@ export const Route = createFileRoute("/api/public/hooks/publish-due")({
       POST: async ({ request }) => {
         const token = /^Bearer (\S+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
         if (!token) return new Response("Unauthorized", { status: 401 });
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { adminBackend } = await import("@/lib/backend.server");
+        const supabaseAdmin = adminBackend();
         const { data: valid } = await supabaseAdmin.rpc("verify_cron_token", { _token: token });
         if (!valid) return new Response("Unauthorized", { status: 401 });
 

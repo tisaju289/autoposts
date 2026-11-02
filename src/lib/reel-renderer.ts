@@ -1,7 +1,9 @@
 import bright from '@/assets/reel-bright.mp3.asset.json';
 import mellow from '@/assets/reel-mellow.mp3.asset.json';
 import spark from '@/assets/reel-spark.mp3.asset.json';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/backend-client';
+
+import { REEL_DURATION_SECONDS, needsReel } from './reel-policy';
 
 const tracks = [bright.url, mellow.url, spark.url];
 export function reelTrackIndex(id: string) {
@@ -29,7 +31,7 @@ export async function renderImageReel(image: Blob, trackIndex: number): Promise<
     const audioResponse = await fetch(tracks[trackIndex % tracks.length] ?? bright.url);
     if (!audioResponse.ok) throw new Error('Reels-এর গান লোড হয়নি।');
     const decoded = await audioContext.decodeAudioData(await audioResponse.arrayBuffer());
-    const duration = 8;
+    const duration = REEL_DURATION_SECONDS;
     const music = audioContext.createBuffer(decoded.numberOfChannels, duration * decoded.sampleRate, decoded.sampleRate);
     for (let ch = 0; ch < music.numberOfChannels; ch++) {
       const dest = music.getChannelData(ch);
@@ -91,7 +93,7 @@ export function preparePostReel(postId: string): Promise<void> {
 async function prepare(postId: string) {
   const { data: post, error } = await supabase.from('posts').select('user_id, image_path, reel_path, status').eq('id', postId).single();
   if (error || !post) throw new Error('পোস্ট পাওয়া যায়নি।');
-  if (post.reel_path || !post.image_path || !['draft', 'scheduled', 'failed'].includes(post.status)) return;
+  if (!needsReel(post)) return;
   // Uploaded videos already go to Instagram Reels, with their original audio.
   if (/\.(mp4|mov|m4v|webm)$/i.test(post.image_path)) return;
   const { data: original, error: downloadError } = await supabase.storage.from('post-images').download(post.image_path);
@@ -103,7 +105,7 @@ async function prepare(postId: string) {
     await supabase.from('posts').update({ reel_error: error instanceof Error ? error.message : 'Reels তৈরি হয়নি।' }).eq('id', postId).eq('user_id', post.user_id);
     throw error;
   }
-  const path = `${post.user_id}/reels/${postId}.mp4`;
+  const path = `${post.user_id}/reels-v15/${postId}-${crypto.randomUUID()}.mp4`;
   let { error: uploadError } = await supabase.storage.from('post-images').upload(path, blob, { contentType: 'video/mp4', upsert: true });
   if (uploadError && /row-level security|policy/i.test(uploadError.message)) {
     await supabase.storage.from('post-images').remove([path]);
@@ -116,6 +118,11 @@ async function prepare(postId: string) {
     await supabase.from('posts').update({ reel_error: message }).eq('id', postId).eq('user_id', post.user_id);
     throw new Error(message);
   }
-  const { error: saveError } = await supabase.from('posts').update({ reel_path: path, reel_error: null }).eq('id', postId).eq('user_id', post.user_id);
-  if (saveError) throw new Error(saveError.message);
+  const { data: saved, error: saveError } = await supabase.from('posts').update({ reel_path: path, reel_error: null }).eq('id', postId).eq('user_id', post.user_id).in('status', ['draft', 'scheduled', 'failed']).select('id');
+  if (saveError || !saved?.length) {
+    await supabase.storage.from('post-images').remove([path]);
+    if (saveError) throw new Error(saveError.message);
+    return;
+  }
+  if (post.reel_path) await supabase.storage.from('post-images').remove([post.reel_path]);
 }

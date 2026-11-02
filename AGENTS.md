@@ -19,3 +19,8 @@
 - Review interval controls use browser-safe scheduling helpers and page-scoped local date/time overrides in display order; persistence remains on Save or Approve & Schedule — arranging times must not approve captions or publish posts.
 - Analytics uses the selected page's credentials and owner-scoped posts; engagement and insights are fetched independently in `facebook-analytics.server.ts`, with unavailable metrics represented as null — a rejected insight must not erase valid engagement.
 - Image Reel derivatives are encoded serially in the browser before approval or immediate publishing, stored privately alongside untouched originals, and read by both publisher paths; destination outcomes remain independent so a Reel error never retries a successful Feed post.
+
+- Application backend clients and auth use `src/lib/backend-*`; paired customer environment configuration overrides managed defaults without editing generated files or falling back on partial configuration — isolates customer deployments.
+- The managed auth gate stays unchanged and its client import is aliased to the application client in Vite and Vitest — preserves the integration-owned gate while using the selected deployment.
+- Fresh external setup assets live under `deployment/`; no production data or credentials belong in them — enables safe customer installation.
+- Image Reel readiness is versioned by derivative folder; browser backfill queries all owned unpublished posts and never modifies captions, approval or scheduled times — replaces older derivatives safely.
