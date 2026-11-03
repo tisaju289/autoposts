@@ -486,7 +486,17 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
     const rawToken = creds?.token || (process.env["CUSTOM_BACKEND_URL"] ? undefined : process.env["FACEBOOK_PAGE_ACCESS_TOKEN"]);
     const url = await signedUrl(db, post.image_path, 3600);
     const video = isVideoPath(post.image_path);
-    const fbId = await publishToFacebook(url, post.caption, { ...(creds ?? {}), video });
+    // Videos go to Facebook once, as a Reel; uploading to /videos too created a duplicate.
+    let fbReelId: string | null = null;
+    let fbId: string;
+    if (video && pageId && rawToken) {
+      const token = await resolvePageToken(rawToken, pageId);
+      const { publishFacebookReel } = await import('./facebook-reels.server');
+      fbReelId = await publishFacebookReel(pageId, token, url, post.caption);
+      fbId = fbReelId;
+    } else {
+      fbId = await publishToFacebook(url, post.caption, { ...(creds ?? {}), video });
+    }
     // Facebook succeeded — try Instagram too; its failure does not fail the post.
     let igId: string | null = null;
     let igErr: string | null = null;
@@ -532,19 +542,8 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
         }
       }
     }
-    // Each Reel destination is independent: failure must not retry the successful Feed.
-    let fbReelId: string | null = null;
     const igReelId: string | null = video ? igId : null;
     const reelErrors: string[] = [];
-    if (video && pageId && rawToken) {
-        try {
-          const token = await resolvePageToken(rawToken, pageId);
-          const { publishFacebookReel } = await import('./facebook-reels.server');
-          fbReelId = await publishFacebookReel(pageId, token, url, post.caption);
-        } catch (error) {
-          reelErrors.push(error instanceof Error ? error.message : String(error));
-        }
-    }
     await db
       .from("posts")
       .update({

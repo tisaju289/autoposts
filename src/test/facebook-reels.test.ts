@@ -19,7 +19,7 @@ describe('uploaded-video Reels', () => {
     expect(finish.get('video_state')).toBe('PUBLISHED');
   });
 
-  it('still publishes an uploaded video to Facebook video and Reels', async () => {
+  it('publishes an uploaded video to Facebook only once, as a Reel', async () => {
     const updates: Record<string, unknown>[] = [];
     const q = {
       select: () => q,
@@ -45,8 +45,10 @@ describe('uploaded-video Reels', () => {
     vi.stubGlobal('fetch', fetcher);
     const result = await publishClaimedPost(db as unknown as Parameters<typeof publishClaimedPost>[0], { id: 'post', user_id: 'owner', image_path: 'owner/original.mp4', caption: 'বাংলা' });
     expect(result.ok).toBe(true);
-    expect(updates.at(-1)?.['fb_post_id']).toBe('video-feed');
+    expect(updates.at(-1)?.['fb_post_id']).toBe('video-reel');
     expect(updates.at(-1)?.['fb_reel_id']).toBe('video-reel');
+    expect(fetcher.mock.calls.some(([url]) => String(url).endsWith('/videos'))).toBe(false);
+    expect(fetcher.mock.calls.filter(([url]) => String(url) === 'https://rupload.facebook.com/video')).toHaveLength(1);
     const upload = fetcher.mock.calls.find(([url]) => String(url) === 'https://rupload.facebook.com/video');
     expect(new Headers(upload?.[1]?.headers).get('file_url')).toBe('https://media.example/original.mp4');
   });
