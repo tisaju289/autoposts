@@ -3,10 +3,9 @@
 - [ ] Deliver complete fresh-install SQL and a Bangla customer setup guide without existing data or secrets.
 - [ ] Test configuration isolation, auth and setup rules; document external-service requirements.
 
-# Scheduled 15-second Reels
-- [ ] Make image Reels 15 seconds and replace older derivatives on unpublished posts.
-- [ ] Prepare existing scheduled images across pages without changing captions or scheduled times.
-- [ ] Verify encoding and backfill rules; live Facebook/Instagram publication requires an authenticated account.
+# Remove image auto Reels
+- [ ] Remove image Reel generation and controls, and ignore existing derivatives during publication; preserve Feed, Story and uploaded videos.
+- [ ] Verify publisher regressions and dashboard behavior.
 
 # Review scheduling intervals
 - [x] Add date/time start controls and selectable minute/hour/day gaps for current-page review posts without auto-approving them.
@@ -30,6 +29,6 @@
 - [x] Wire derivatives to Facebook and Instagram Reels alongside Feed and Story; retain independent outcomes.
 - [x] Clean derivatives after 12 hours and show Reel outcomes.
 - [x] Verify real browser conversion (8 seconds, 1080×1920 H264/AAC), mocked publishing requests and regressions (27 tests).
-- [ ] Verify authenticated upload → scheduled Facebook/Instagram Reel readback; blocked because no requesting-user account/session is available and no live post was published during testing.
+- Image auto Reels superseded by the user's removal request.
 # Bangla setup delivery
 - [ ] Provide downloadable fresh-install SQL, customer configuration template, and step-by-step Bangla guide.
