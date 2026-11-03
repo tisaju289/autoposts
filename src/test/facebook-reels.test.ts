@@ -19,6 +19,38 @@ describe('uploaded-video Reels', () => {
     expect(finish.get('video_state')).toBe('PUBLISHED');
   });
 
+  it('still publishes an uploaded video to Facebook video and Reels', async () => {
+    const updates: Record<string, unknown>[] = [];
+    const q = {
+      select: () => q,
+      eq: () => q,
+      update: (value: Record<string, unknown>) => { updates.push(value); return q; },
+      maybeSingle: async () => ({ data: { fb_page_id: 'page', fb_token: 'token' } }),
+    };
+    const db = { from: () => q, storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: 'https://media.example/original.mp4' } }) }) } };
+    const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('fields=access_token')) return Response.json({ access_token: 'token' });
+      if (url.includes('instagram_business_account')) return Response.json({});
+      if (url.endsWith('/videos')) return Response.json({ id: 'video-feed' });
+      if (url.endsWith('/video_reels')) {
+        const body = init?.body as URLSearchParams;
+        return body.get('upload_phase') === 'start'
+          ? Response.json({ video_id: 'video-reel', upload_url: 'https://rupload.facebook.com/video' })
+          : Response.json({ success: true });
+      }
+      if (url === 'https://rupload.facebook.com/video') return Response.json({ success: true });
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const result = await publishClaimedPost(db as unknown as Parameters<typeof publishClaimedPost>[0], { id: 'post', user_id: 'owner', image_path: 'owner/original.mp4', caption: 'বাংলা' });
+    expect(result.ok).toBe(true);
+    expect(updates.at(-1)?.['fb_post_id']).toBe('video-feed');
+    expect(updates.at(-1)?.['fb_reel_id']).toBe('video-reel');
+    const upload = fetcher.mock.calls.find(([url]) => url === 'https://rupload.facebook.com/video');
+    expect(new Headers(upload?.[1]?.headers).get('file_url')).toBe('https://media.example/original.mp4');
+  });
+
   it.each([null, 'owner/reels-v15/post.mp4'])('publishes images to Feed and Story without Reels, ignoring derivative %s', async (reelPath) => {
     const updates: Record<string, unknown>[] = [];
     const builder = (table: string) => {
