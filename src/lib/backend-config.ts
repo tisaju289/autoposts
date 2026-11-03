@@ -7,7 +7,7 @@ export function customerBackend(url?: string, publicKey?: string) {
   if (publicKey.startsWith('sb_secret_')) throw new Error('A secret key cannot be used as a browser publishable key.');
   if (!publicKey.startsWith('sb_publishable_')) {
     try {
-      const claims = JSON.parse(atob(publicKey.split('.')[1] ?? '')));
+      const claims = JSON.parse(atob(publicKey.split('.')[1] ?? ''));
       if (claims.role !== 'anon') throw new Error('Invalid role');
     } catch { throw new Error('Use a publishable key or legacy anon key, never a service-role key.'); }
   }

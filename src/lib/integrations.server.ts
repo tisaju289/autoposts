@@ -534,27 +534,16 @@ export async function publishClaimedPost(db: DB, post: { id: string; image_path:
     }
     // Each Reel destination is independent: failure must not retry the successful Feed.
     let fbReelId: string | null = null;
-    let igReelId: string | null = video ? igId : null;
+    const igReelId: string | null = video ? igId : null;
     const reelErrors: string[] = [];
-    if (pageId && rawToken) {
-      if (video || post.reel_path) {
+    if (video && pageId && rawToken) {
         try {
-          const reelUrl = video ? url : await signedUrl(db, post.reel_path ?? '', 3600);
           const token = await resolvePageToken(rawToken, pageId);
           const { publishFacebookReel } = await import('./facebook-reels.server');
-          const results = await Promise.allSettled([
-            publishFacebookReel(pageId, token, reelUrl, post.caption),
-            video ? Promise.resolve({ postId: igId }) : publishToInstagram(pageId, token, reelUrl, post.caption, creds?.igUserId, true),
-          ]);
-          const [fb, ig] = results;
-          if (fb.status === 'fulfilled') fbReelId = fb.value;
-          else reelErrors.push(`FB Reels: ${fb.reason instanceof Error ? fb.reason.message : String(fb.reason)}`);
-          if (ig.status === 'fulfilled') igReelId = ig.value.postId;
-          else reelErrors.push(`IG Reels: ${ig.reason instanceof Error ? ig.reason.message : String(ig.reason)}`);
+          fbReelId = await publishFacebookReel(pageId, token, url, post.caption);
         } catch (error) {
           reelErrors.push(error instanceof Error ? error.message : String(error));
         }
-      } else reelErrors.push('ছবির Reels ভিডিও প্রস্তুত হয়নি।');
     }
     await db
       .from("posts")
