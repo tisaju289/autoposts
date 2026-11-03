@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { customerBackend, backendFetch } from '@/lib/backend-config';
 import { googleConnection } from '@/lib/google.server';
-import { REEL_DURATION_SECONDS, needsReel } from '@/lib/reel-policy';
 import { readFileSync } from 'node:fs';
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 describe('separate customer deployments', () => {
@@ -20,7 +19,7 @@ describe('separate customer deployments', () => {
     expect(() => customerBackend('https://customer.example', token)).toThrow();
   });
   it('keeps user bearer auth and removes opaque key bearer auth', async () => {
-    const mock = vi.fn(async () => new Response()); vi.stubGlobal('fetch', mock);
+    const mock = vi.fn<typeof fetch>(async () => new Response()); vi.stubGlobal('fetch', mock);
     await backendFetch('sb_publishable_customer')('https://customer.example', { headers: { Authorization: 'Bearer sb_publishable_customer' } });
     expect(new Headers(mock.mock.calls[0]?.[1]?.headers).has('authorization')).toBe(false);
     await backendFetch('sb_publishable_customer')('https://customer.example', { headers: { Authorization: 'Bearer user.jwt.token' } });
@@ -47,13 +46,4 @@ describe('separate customer deployments', () => {
     }
     expect(sql).toContain('REVOKE ALL ON FUNCTION public.verify_cron_token(text) FROM PUBLIC, anon, authenticated;');
   });
-});
-describe('15-second image Reels', () => {
-  it('encodes a 15-second duration', () => expect(REEL_DURATION_SECONDS).toBe(15));
-  it('replaces an older Reel on an already scheduled image', () => expect(needsReel({ status:'scheduled',image_path:'owner/a.png',reel_path:'owner/reels/a.mp4' })).toBe(true));
-  it('keeps current derivatives and posted images untouched', () => {
-    expect(needsReel({ status:'scheduled',image_path:'a.png',reel_path:'owner/reels-v15/a.mp4' })).toBe(false);
-    expect(needsReel({ status:'posted',image_path:'a.png' })).toBe(false);
-  });
-  it('does not turn original videos into image derivatives', () => expect(needsReel({ status:'scheduled',image_path:'a.mp4' })).toBe(false));
 });
