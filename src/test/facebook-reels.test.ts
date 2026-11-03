@@ -5,7 +5,7 @@ import { publishClaimedPost } from '@/lib/integrations.server';
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('same-image Reels', () => {
+describe('uploaded-video Reels', () => {
   it('uses the hosted video upload then publishes the same caption', async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(Response.json({ video_id: 'reel-1', upload_url: 'https://rupload.facebook.com/video' }))
@@ -19,7 +19,39 @@ describe('same-image Reels', () => {
     expect(finish.get('video_state')).toBe('PUBLISHED');
   });
 
-  it('publishes the original image to Feed and Story and its derivative to Reels; preserves Feed on a Reel failure', async () => {
+  it('still publishes an uploaded video to Facebook video and Reels', async () => {
+    const updates: Record<string, unknown>[] = [];
+    const q = {
+      select: () => q,
+      eq: () => q,
+      update: (value: Record<string, unknown>) => { updates.push(value); return q; },
+      maybeSingle: async () => ({ data: { fb_page_id: 'page', fb_token: 'token' } }),
+    };
+    const db = { from: () => q, storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: 'https://media.example/original.mp4' } }) }) } };
+    const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('fields=access_token')) return Response.json({ access_token: 'token' });
+      if (url.includes('instagram_business_account')) return Response.json({});
+      if (url.endsWith('/videos')) return Response.json({ id: 'video-feed' });
+      if (url.endsWith('/video_reels')) {
+        const body = init?.body as URLSearchParams;
+        return body.get('upload_phase') === 'start'
+          ? Response.json({ video_id: 'video-reel', upload_url: 'https://rupload.facebook.com/video' })
+          : Response.json({ success: true });
+      }
+      if (url === 'https://rupload.facebook.com/video') return Response.json({ success: true });
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const result = await publishClaimedPost(db as unknown as Parameters<typeof publishClaimedPost>[0], { id: 'post', user_id: 'owner', image_path: 'owner/original.mp4', caption: 'বাংলা' });
+    expect(result.ok).toBe(true);
+    expect(updates.at(-1)?.['fb_post_id']).toBe('video-feed');
+    expect(updates.at(-1)?.['fb_reel_id']).toBe('video-reel');
+    const upload = fetcher.mock.calls.find(([url]) => String(url) === 'https://rupload.facebook.com/video');
+    expect(new Headers(upload?.[1]?.headers).get('file_url')).toBe('https://media.example/original.mp4');
+  });
+
+  it.each([null, 'owner/reels-v15/post.mp4'])('publishes images to Feed and Story without Reels, ignoring derivative %s', async (reelPath) => {
     const updates: Record<string, unknown>[] = [];
     const builder = (table: string) => {
       const q: Record<string, unknown> = {};
@@ -42,16 +74,18 @@ describe('same-image Reels', () => {
     });
     vi.stubGlobal('fetch', fetcher);
     // The small fake only models the database operations used by this publisher.
-    const result = await publishClaimedPost(db as unknown as Parameters<typeof publishClaimedPost>[0], { id: 'post', user_id: 'owner', image_path: 'owner/original.png', reel_path: 'owner/reels/post.mp4', caption: 'বাংলা' });
+    const result = await publishClaimedPost(db as unknown as Parameters<typeof publishClaimedPost>[0], { id: 'post', user_id: 'owner', image_path: 'owner/original.png', reel_path: reelPath, caption: 'বাংলা' });
     expect(result.ok).toBe(true);
-    expect(signed.mock.calls.map(([path]) => path)).toEqual(['owner/original.png', 'owner/reels/post.mp4']);
+    expect(signed.mock.calls.map(([path]) => path)).toEqual(['owner/original.png']);
     expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith('/photos'))).toHaveLength(2);
     expect(fetcher.mock.calls.some(([url]) => String(url).endsWith('/photo_stories'))).toBe(true);
-    expect(fetcher.mock.calls.some(([url]) => String(url).endsWith('/video_reels'))).toBe(true);
+    expect(fetcher.mock.calls.some(([url]) => String(url).endsWith('/video_reels'))).toBe(false);
     const final = updates.at(-1);
     expect(final?.['status']).toBe('posted');
     expect(final?.['fb_post_id']).toBe('feed');
-    expect(final?.['reel_error']).toContain('reel rejected');
+    expect(final?.['reel_error']).toBeNull();
+    expect(final?.['fb_reel_id']).toBeNull();
+    expect(final?.['ig_reel_id']).toBeNull();
     expect(final?.['error']).toBeNull();
   });
 });
