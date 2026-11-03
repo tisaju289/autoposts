@@ -47,7 +47,7 @@ describe('uploaded-video Reels', () => {
     expect(result.ok).toBe(true);
     expect(updates.at(-1)?.['fb_post_id']).toBe('video-feed');
     expect(updates.at(-1)?.['fb_reel_id']).toBe('video-reel');
-    const upload = fetcher.mock.calls.find(([url]) => url === 'https://rupload.facebook.com/video');
+    const upload = fetcher.mock.calls.find(([url]) => String(url) === 'https://rupload.facebook.com/video');
     expect(new Headers(upload?.[1]?.headers).get('file_url')).toBe('https://media.example/original.mp4');
   });
 

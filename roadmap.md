@@ -4,8 +4,8 @@
 - [ ] Test configuration isolation, auth and setup rules; document external-service requirements.
 
 # Remove image auto Reels
-- [ ] Remove image Reel generation and controls, and ignore existing derivatives during publication; preserve Feed, Story and uploaded videos.
-- [ ] Verify publisher regressions and dashboard behavior.
+- [x] Remove image Reel generation and controls, and ignore existing derivatives during publication; preserve Feed, Story and uploaded videos.
+- [x] Verify image publishing with and without legacy derivatives, original-video publishing and signed-in dashboard without backfill requests; no live social post sent.
 
 # Review scheduling intervals
 - [x] Add date/time start controls and selectable minute/hour/day gaps for current-page review posts without auto-approving them.
