@@ -1,6 +1,6 @@
 # TikTok and YouTube connections
-- [ ] Add settings entries for connecting each user's TikTok and YouTube account.
-- [ ] Complete OAuth and scheduled video publishing after provider app approvals and credentials are configured.
+- [x] Add settings entries showing per-platform setup status and disabled connect actions until each provider is configured.
+- [ ] Complete OAuth and scheduled video publishing — blocked on TikTok client approval and YouTube OAuth app setup.
 
 # Portable customer deployments
 - [ ] Replace fixed application connections with deployment-specific browser/server configuration while preserving the current site.
