@@ -1,3 +1,7 @@
+# TikTok and YouTube connections
+- [ ] Add settings entries for connecting each user's TikTok and YouTube account.
+- [ ] Complete OAuth and scheduled video publishing after provider app approvals and credentials are configured.
+
 # Portable customer deployments
 - [ ] Replace fixed application connections with deployment-specific browser/server configuration while preserving the current site.
 - [ ] Deliver complete fresh-install SQL and a Bangla customer setup guide without existing data or secrets.
