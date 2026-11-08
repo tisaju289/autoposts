@@ -1,3 +1,7 @@
+# TikTok and YouTube connections
+- [x] Add settings entries showing per-platform setup status and disabled connect actions until each provider is configured.
+- [ ] Complete OAuth and scheduled video publishing — blocked on TikTok client approval and YouTube OAuth app setup.
+
 # Portable customer deployments
 - [ ] Replace fixed application connections with deployment-specific browser/server configuration while preserving the current site.
 - [ ] Deliver complete fresh-install SQL and a Bangla customer setup guide without existing data or secrets.
