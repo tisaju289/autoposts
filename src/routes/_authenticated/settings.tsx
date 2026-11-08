@@ -11,15 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { TONE_OPTIONS } from "@/lib/tones";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Music2, Youtube } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Auto Posts" },
-      { name: "description", content: "Connect your Facebook Page, Instagram and Google Sheet." },
+      { name: "description", content: "Manage Facebook, Instagram, TikTok and YouTube publishing connections." },
       { property: "og:title", content: "Settings — Auto Posts" },
-      { property: "og:description", content: "Connect your Facebook Page, Instagram and Google Sheet." },
+      { property: "og:description", content: "Manage Facebook, Instagram, TikTok and YouTube publishing connections." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -47,11 +47,55 @@ function SettingsPage() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <FacebookSettings />
+        <ShortVideoConnections />
         <ExtraPages />
         <SheetSettings userId={user.id} onSaved={syncQuiet} />
         <CaptionStyle userId={user.id} />
       </div>
     </AppShell>
+  );
+}
+
+function ShortVideoConnections() {
+  const platforms = [
+    {
+      name: "TikTok",
+      icon: Music2,
+      description: "সরাসরি TikTok-এ ভিডিও প্রকাশের অনুমতি এখনো প্রস্তুত নয়।",
+      action: "TikTok যুক্ত করুন",
+    },
+    {
+      name: "YouTube Shorts",
+      icon: Youtube,
+      description: "YouTube OAuth ও ভিডিও প্রকাশের অনুমতি এখনো প্রস্তুত নয়।",
+      action: "YouTube যুক্ত করুন",
+    },
+  ];
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-card">
+      <h3 className="text-lg font-bold">TikTok ও YouTube</h3>
+      <p className="mt-1 text-sm text-muted-foreground">ভিডিও পোস্টের সংযোগ</p>
+      <div className="mt-4 divide-y">
+        {platforms.map(({ name, icon: Icon, description, action }) => (
+          <div key={name} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{name}</span>
+                  <Badge variant="secondary">সেটআপ বাকি</Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+              </div>
+            </div>
+            <Button type="button" variant="outline" disabled className="w-full shrink-0 sm:w-auto">
+              {action}
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
